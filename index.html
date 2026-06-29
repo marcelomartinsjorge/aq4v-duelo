@@ -104,6 +104,39 @@
   }
   .lutador.atacando{transform:translateY(-6px) scale(1.04);}
 
+  /* ---------- EFEITOS DE IMPACTO ---------- */
+  .impacto{
+    position:absolute;
+    z-index:7;
+    pointer-events:none;
+    width:120px;height:120px;
+    margin:-60px 0 0 -60px;
+    background:radial-gradient(circle, rgba(255,240,200,.95) 0%, rgba(255,150,60,.6) 30%, transparent 70%);
+    opacity:0;
+    animation:flashImpacto .4s ease-out;
+  }
+  @keyframes flashImpacto{
+    0%{opacity:0;transform:scale(.3);}
+    25%{opacity:1;transform:scale(1);}
+    100%{opacity:0;transform:scale(1.5);}
+  }
+  .slash{
+    position:absolute;
+    z-index:7;
+    pointer-events:none;
+    width:140px;height:8px;
+    margin:-4px 0 0 -70px;
+    background:linear-gradient(90deg, transparent, #fff 30%, #ffe27a 50%, #fff 70%, transparent);
+    border-radius:50%;
+    opacity:0;
+    animation:slashCorte .35s ease-out;
+  }
+  @keyframes slashCorte{
+    0%{opacity:0;transform:scaleX(.2) rotate(-35deg);}
+    40%{opacity:1;transform:scaleX(1) rotate(-35deg);}
+    100%{opacity:0;transform:scaleX(1.1) rotate(-35deg);}
+  }
+
   /* ---------- CAIXAS DE HP ---------- */
   .hpbox{
     position:absolute;
@@ -423,17 +456,26 @@
     <div class="lutador" id="kronk">
       <canvas class="pose-base ativa" data-video="kronk_idle.webm"></canvas>
       <img class="pose-base-fallback" src="kronk.png" alt="Kronk">
-      <img class="pose-ataque" src="kronkataca.png" alt="Kronk atacando">
+      <canvas class="pose-ataque" data-video="kronkataca_anim.webm"></canvas>
+      <img class="pose-ataque-fallback" src="kronkataca.png" alt="Kronk atacando">
       <canvas class="pose-defesa" data-video="kronkrage_idle.webm" data-rage="1"></canvas>
       <img class="pose-defesa-fallback" src="kronkrage.png" alt="Kronk enfurecido">
-      <img class="pose-dano" src="kronkbeenhit.png" alt="Kronk ferido">
+      <canvas class="pose-dano" data-video="kronkbeenhit_anim.webm"></canvas>
+      <img class="pose-dano-fallback" src="kronkbeenhit.png" alt="Kronk ferido">
+      <canvas class="pose-desvia" data-video="kronkdesvia_anim.webm"></canvas>
+      <img class="pose-desvia-fallback" src="kronk.png" alt="Kronk desviando">
     </div>
     <div class="lutador" id="bryne">
       <canvas class="pose-base ativa" data-video="bryne_idle.webm"></canvas>
       <img class="pose-base-fallback" src="bryne.png" alt="Bryne">
-      <img class="pose-ataque" src="bryneataca.png" alt="Bryne atacando">
-      <img class="pose-defesa" src="brynedefende.png" alt="Bryne defendendo">
-      <img class="pose-dano" src="brynebeenhit.png" alt="Bryne ferida">
+      <canvas class="pose-ataque" data-video="bryneataca_anim.webm"></canvas>
+      <img class="pose-ataque-fallback" src="bryneataca.png" alt="Bryne atacando">
+      <canvas class="pose-defesa" data-video="brynedefende_anim.webm"></canvas>
+      <img class="pose-defesa-fallback" src="brynedefende.png" alt="Bryne defendendo">
+      <canvas class="pose-dano" data-video="brynebeenhit_anim.webm"></canvas>
+      <img class="pose-dano-fallback" src="brynebeenhit.png" alt="Bryne ferida">
+      <canvas class="pose-desvia" data-video="brynedesvia_anim.webm"></canvas>
+      <img class="pose-desvia-fallback" src="bryne.png" alt="Bryne desviando">
     </div>
 
     <div class="fim" id="fim">
@@ -588,6 +630,7 @@ function resolverBryne(id){
       }
       aplicarDanoKronk(dano);
       poseDano('kronk');
+      impacto('kronk','corte');
       if(crit){
         som('critico');
         somBryneHit();
@@ -619,11 +662,14 @@ function resolverBryne(id){
         som('ataque');
         somKronkHit();
         vozBryneLevouDano();
+        poseAtaque('kronk');
         log('Kronk usa o peso — <span class="ruim">contra-ataque: 6</span>.');
         aplicarDanoBryne(6,true);
         poseDano('bryne');
         floats('bryne',6,'dano');
         anim('bryne','golpeado'); abalar();
+      } else {
+        poseDesvia('kronk');
       }
     }
   }
@@ -735,6 +781,7 @@ function resolverKronk(id){
 
     aplicarDanoBryne(dano,false);
     poseDano('bryne');
+    impacto('bryne','golpe');
     anim('bryne','golpeado'); abalar();
 
     if(crit){
@@ -765,11 +812,14 @@ function resolverKronk(id){
       somBryneHit();
       vozBryneAtacou();
       vozKronkLevouDano();
+      poseAtaque('bryne');
       log('Bryne aproveita a brecha — <span class="acerto">contra-ataque: 5</span>.');
       aplicarDanoKronk(5);
       poseDano('kronk');
       floats('kronk',5,'dano');
       anim('kronk','golpeado');
+    } else {
+      poseDesvia('bryne');
     }
   }
   ef.terreno=false; // consome ao fim do ataque inimigo
@@ -901,36 +951,69 @@ function anim(quem,cls){
   setTimeout(()=>el.classList.remove(cls), cls==='atacando'?180:360);
 }
 
+// efeito visual de impacto sobre o alvo (flash + corte)
+function impacto(quem, tipo){
+  const alvo=document.getElementById(quem);
+  const cena=document.getElementById('cena');
+  const rect=alvo.getBoundingClientRect();
+  const cr=cena.getBoundingClientRect();
+  const cx = rect.left-cr.left+rect.width*0.5;
+  const cy = rect.top-cr.top+rect.height*0.42;
+  // flash
+  const fl=document.createElement('div');
+  fl.className='impacto';
+  fl.style.left=cx+'px'; fl.style.top=cy+'px';
+  cena.appendChild(fl);
+  setTimeout(()=>fl.remove(),400);
+  // corte (slash) — só em acertos de ataque
+  if(tipo==='corte'){
+    const sl=document.createElement('div');
+    sl.className='slash';
+    sl.style.left=cx+'px'; sl.style.top=cy+'px';
+    cena.appendChild(sl);
+    setTimeout(()=>sl.remove(),350);
+  }
+}
+
 /* ---- Sistema de poses (base / ataque / defesa) ---- */
 const timersPose = {kronk:null, bryne:null};
 
 function setPose(quem, pose){
   const el=document.getElementById(quem);
   el.querySelectorAll('img, canvas').forEach(m=>m.classList.remove('ativa'));
-  // tenta o canvas animado da pose; se falhou, usa o fallback de imagem
   const cv = el.querySelector('canvas.pose-'+pose);
   const fb = el.querySelector('.pose-'+pose+'-fallback');
   if(cv && cv.dataset.falhou!=='1'){
     cv.classList.add('ativa');
+    // reinicia o vídeo da pose para a animação começar do zero
+    if(cv._vid){ try{ cv._vid.currentTime=0; cv._vid.play().catch(()=>{}); }catch(e){} }
     return;
   }
-  if(fb){
-    fb.classList.add('ativa');
-    return;
-  }
+  if(fb){ fb.classList.add('ativa'); return; }
   const alvo = el.querySelector('.pose-'+pose);
   if(alvo) alvo.classList.add('ativa');
 }
 
-function poseAtaque(quem){
-  // limpa qualquer timer anterior e qualquer pose de defesa
-  if(timersPose[quem]) clearTimeout(timersPose[quem]);
-  setPose(quem,'ataque');
-  timersPose[quem] = setTimeout(()=>{
-    setPose(quem,'base');
-    timersPose[quem]=null;
-  }, 2000);
+// retorna a pose "de repouso" do personagem (defesa se algum buff ativo, senão base)
+function poseRepouso(quem){
+  const emDefesa = (quem==='bryne' && (S.ef.terreno||S.ef.leitura||S.ef.parede))
+                || (quem==='kronk' && (S.ef.furia>0||S.ef.peso));
+  return emDefesa ? 'defesa' : 'base';
 }
+
+// pose temporária (ataque/dano/desvia) que volta ao repouso depois de um tempo
+function poseTemporaria(quem, pose, dur){
+  if(timersPose[quem]) clearTimeout(timersPose[quem]);
+  setPose(quem, pose);
+  timersPose[quem] = setTimeout(()=>{
+    setPose(quem, poseRepouso(quem));
+    timersPose[quem]=null;
+  }, dur||2200);
+}
+
+function poseAtaque(quem){ poseTemporaria(quem,'ataque',2200); }
+function poseDano(quem){ poseTemporaria(quem,'dano',2000); }
+function poseDesvia(quem){ poseTemporaria(quem,'desvia',2000); }
 
 function poseDefesa(quem){
   if(timersPose[quem]){ clearTimeout(timersPose[quem]); timersPose[quem]=null; }
@@ -940,18 +1023,6 @@ function poseDefesa(quem){
 function poseBase(quem){
   if(timersPose[quem]){ clearTimeout(timersPose[quem]); timersPose[quem]=null; }
   setPose(quem,'base');
-}
-
-function poseDano(quem){
-  // mostra ferido por 2s, depois volta ao estado lógico (defesa se ativo, senão base)
-  if(timersPose[quem]) clearTimeout(timersPose[quem]);
-  setPose(quem,'dano');
-  timersPose[quem] = setTimeout(()=>{
-    const emDefesa = (quem==='bryne' && (S.ef.terreno||S.ef.leitura||S.ef.parede))
-                  || (quem==='kronk' && (S.ef.furia>0||S.ef.peso));
-    setPose(quem, emDefesa ? 'defesa' : 'base');
-    timersPose[quem]=null;
-  }, 2000);
 }
 function abalar(){
   const m=document.getElementById('moldura');
@@ -1167,13 +1238,16 @@ if(EH_TOUCH){
 function configurarVideosIdle(){
   document.querySelectorAll('.lutador canvas[data-video]').forEach(canvas=>{
     const lutador = canvas.closest('.lutador');
-    const ehRage = canvas.dataset.rage==='1';
-    const fallback = lutador.querySelector(ehRage ? '.pose-defesa-fallback' : '.pose-base-fallback');
+    // descobre o nome da pose pela classe (pose-base, pose-ataque, etc.)
+    const poseClasse = [...canvas.classList].find(c=>c.startsWith('pose-'));
+    const fallback = lutador.querySelector('.'+poseClasse+'-fallback');
+    // poses temporárias não fazem loop (tocam uma vez); idle/rage fazem loop
+    const ehLoop = (poseClasse==='pose-base' || poseClasse==='pose-defesa');
     const ctx = canvas.getContext('2d', {willReadFrequently:true});
 
     const vid = document.createElement('video');
     vid.src = canvas.dataset.video;
-    vid.loop = true; vid.muted = true; vid.playsInline = true;
+    vid.loop = ehLoop; vid.muted = true; vid.playsInline = true;
     vid.setAttribute('playsinline','');
     vid.crossOrigin = 'anonymous';
 
@@ -1191,9 +1265,7 @@ function configurarVideosIdle(){
 
     function loop(){
       if(!ok) return;
-      // só processa se este canvas estiver visível (economia de CPU)
       if(canvas.classList.contains('ativa') && vid.readyState >= 2 && vid.videoWidth){
-        if(vid.paused) vid.play().catch(()=>{});
         if(!proc){
           proc = document.createElement('canvas');
           proc.width = vid.videoWidth; proc.height = vid.videoHeight;
@@ -1220,8 +1292,8 @@ function configurarVideosIdle(){
 
     vid.addEventListener('loadeddata', ()=>{ ok=true; loop(); });
     vid.addEventListener('error', usarFallback);
-    const p = vid.play();
-    if(p && p.catch) p.catch(()=>{});
+    // só dá autoplay nos vídeos em loop (idle/defesa); temporários tocam sob demanda
+    if(ehLoop){ const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); }
 
     canvas._vid = vid;
     setTimeout(()=>{ if(!ok && !vid.videoWidth) usarFallback(); }, 1500);
@@ -1229,9 +1301,9 @@ function configurarVideosIdle(){
 }
 configurarVideosIdle();
 
-// retoma o play dos vídeos no primeiro clique (caso autoplay tenha sido bloqueado)
+// retoma o play dos vídeos em loop no primeiro clique (autoplay bloqueado)
 document.addEventListener('click', ()=>{
-  document.querySelectorAll('.lutador canvas[data-video]').forEach(c=>{
+  document.querySelectorAll('.lutador canvas.pose-base[data-video], .lutador canvas.pose-defesa[data-video]').forEach(c=>{
     if(c._vid && c._vid.paused){ c._vid.play().catch(()=>{}); }
   });
 }, {once:true});
