@@ -468,14 +468,20 @@
     <div class="lutador" id="bryne">
       <canvas class="pose-base ativa" data-video="bryne_idle_norm.webm"></canvas>
       <img class="pose-base-fallback" src="bryne.png" alt="Bryne">
-      <canvas class="pose-ataque" data-video="bryneatacacerto_anim_norm.webm" data-video-alts="bryneatacacerto_anim_norm.webm,bryneatacacerto2_anim_norm.webm"></canvas>
+      <canvas class="pose-ataque" data-video="bryneataque_idle_norm.webm"></canvas>
       <img class="pose-ataque-fallback" src="bryneataca.png" alt="Bryne atacando">
-      <canvas class="pose-defesa" data-video="brynedefende_anim_norm.webm"></canvas>
+      <canvas class="pose-entradadefesa" data-video="bryneentra_defesa_norm.webm"></canvas>
+      <img class="pose-entradadefesa-fallback" src="brynedefende.png" alt="Bryne entrando em defesa">
+      <canvas class="pose-defesa" data-video="bryne_defesa_loop_norm.webm"></canvas>
       <img class="pose-defesa-fallback" src="brynedefende.png" alt="Bryne defendendo">
-      <canvas class="pose-dano" data-video="brynebeenhit_anim_norm.webm"></canvas>
+      <canvas class="pose-contraataque" data-video="brynecontraataque_norm.webm"></canvas>
+      <img class="pose-contraataque-fallback" src="bryneataca.png" alt="Bryne contra-atacando">
+      <canvas class="pose-ataquedadefesa" data-video="bryneataque_defesa_norm.webm"></canvas>
+      <img class="pose-ataquedadefesa-fallback" src="bryneataca.png" alt="Bryne atacando da defesa">
+      <canvas class="pose-dano" data-video="brynedano_idle_norm.webm"></canvas>
       <img class="pose-dano-fallback" src="brynebeenhit.png" alt="Bryne ferida">
-      <canvas class="pose-desvia" data-video="brynedesvia_anim_norm.webm"></canvas>
-      <img class="pose-desvia-fallback" src="bryne.png" alt="Bryne desviando">
+      <canvas class="pose-danodefesa" data-video="brynedano_defesa_norm.webm"></canvas>
+      <img class="pose-danodefesa-fallback" src="brynebeenhit.png" alt="Bryne ferida na defesa">
     </div>
 
     <div class="fim" id="fim">
@@ -570,7 +576,7 @@ function jogadorAge(id){
   resolverBryne(id);
   // o resultado pode vir com atraso (DELAY_IMPACTO); verifica fim depois disso
   setTimeout(()=>{ if(verificarFim()) return; }, DELAY_IMPACTO+150);
-  setTimeout(()=>{ if(!S.over) faseKronk(); }, 3000);
+  setTimeout(()=>{ if(!S.over) faseKronk(); }, 3700);
 }
 
 function faseKronk(){
@@ -824,15 +830,14 @@ function resolverKronk(id){
         somBryneHit();
         vozBryneAtacou();
         vozKronkLevouDano();
-        poseAtaque('bryne');
+        poseContraataque();
         log('Bryne aproveita a brecha — <span class="acerto">contra-ataque: 5</span>.');
         aplicarDanoKronk(5);
         poseDano('kronk');
         floats('kronk',5,'dano');
         anim('kronk','golpeado');
-      } else {
-        poseDesvia('bryne');
       }
+      // Bryne não tem mais animação de esquiva — permanece na pose atual (base ou defesa)
     }
     ef.terreno=false;
     renderEstados();
@@ -1023,21 +1028,63 @@ function poseRepouso(quem){
   return emDefesa ? 'defesa' : 'base';
 }
 
-// pose temporária (ataque/dano/desvia) que volta ao repouso depois de um tempo
-function poseTemporaria(quem, pose, dur){
+// pose temporária que ao final chama computeReturnPose() (avaliado no momento do timeout, não do disparo)
+function poseTemporariaCustom(quem, pose, dur, computeReturnPose){
   if(timersPose[quem]) clearTimeout(timersPose[quem]);
   setPose(quem, pose);
   timersPose[quem] = setTimeout(()=>{
-    setPose(quem, poseRepouso(quem));
+    setPose(quem, computeReturnPose());
     timersPose[quem]=null;
   }, dur||2200);
 }
+function poseTemporaria(quem, pose, dur){
+  poseTemporariaCustom(quem, pose, dur, ()=>poseRepouso(quem));
+}
 
-function poseAtaque(quem){ poseTemporaria(quem,'ataque', quem==='kronk'?3400:2200); }
-function poseDano(quem){ poseTemporaria(quem,'dano',2200); }
-function poseDesvia(quem){ poseTemporaria(quem,'desvia',2200); }
+function poseAtaque(quem){
+  if(quem==='kronk'){
+    poseTemporariaCustom('kronk','ataque',3400, ()=>poseRepouso('kronk'));
+    return;
+  }
+  // Bryne: ataque muda conforme ela já estar ou não em postura defensiva
+  const emDefesa = !!(S.ef.terreno||S.ef.leitura||S.ef.parede);
+  const pose = emDefesa ? 'ataquedadefesa' : 'ataque';
+  poseTemporariaCustom('bryne', pose, emDefesa?3600:2200, ()=>'base'); // atacar sempre sai da guarda
+}
+
+// Bryne contra-ataca (gatilho específico de Usar o Terreno quando o inimigo erra)
+function poseContraataque(){
+  poseTemporariaCustom('bryne','contraataque', 3600, ()=>'base');
+}
+
+function poseDano(quem){
+  if(quem==='bryne'){
+    const emDefesa = !!(S.ef.terreno||S.ef.leitura||S.ef.parede);
+    const pose = emDefesa ? 'danodefesa' : 'dano';
+    poseTemporariaCustom('bryne', pose, emDefesa?2900:2200, ()=>poseRepouso('bryne'));
+    return;
+  }
+  poseTemporariaCustom('kronk','dano',2200, ()=>poseRepouso('kronk'));
+}
+
+// desvio: usado só pelo Kronk agora (Bryne não tem mais animação própria de esquiva)
+function poseDesvia(quem){
+  poseTemporariaCustom(quem,'desvia',2200, ()=>poseRepouso(quem));
+}
 
 function poseDefesa(quem){
+  if(quem==='bryne'){
+    const el=document.getElementById('bryne');
+    const jaEmDefesa = el.querySelector('.pose-defesa.ativa') || el.querySelector('.pose-entradadefesa.ativa');
+    if(jaEmDefesa) return; // já entrando/em guarda — não repete a transição
+    if(timersPose.bryne){ clearTimeout(timersPose.bryne); timersPose.bryne=null; }
+    setPose('bryne','entradadefesa');
+    timersPose.bryne = setTimeout(()=>{
+      setPose('bryne','defesa');
+      timersPose.bryne=null;
+    }, 1700);
+    return;
+  }
   if(timersPose[quem]){ clearTimeout(timersPose[quem]); timersPose[quem]=null; }
   setPose(quem,'defesa');
 }
