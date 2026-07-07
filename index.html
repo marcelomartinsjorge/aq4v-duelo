@@ -89,8 +89,8 @@
   #bryne{
     bottom:-2%;
     left:2%;
-    width:42%;
-    height:74%;
+    width:55%;
+    height:95%;
     z-index:3;
   }
 
@@ -1355,9 +1355,9 @@ function configurarVideosIdle(){
       const d = frame.data;
       for(let i=0;i<d.length;i+=4){
         const r=d[i], g=d[i+1], b=d[i+2];
-        if(g>90 && g>r*1.4 && g>b*1.4){
+        if(g-b>10 && g-r>10){
           d[i+3]=0;
-        } else if(g>r*1.1 && g>b*1.1){
+        } else if(g-b>4 && g-r>4){
           d[i+1] = Math.round((r+b)/2);
         }
       }
