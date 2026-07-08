@@ -827,7 +827,6 @@ function resolverKronk(id){
     } else {
       som('erro');
       somKronkMiss();
-      vozBryneEsquivou();
       log(`Kronk ${nome} — D20: <span class="dado">${rol}</span> → <span class="acerto">errou</span>.`);
       floats('bryne','errou','erro');
       if(ef.terreno){
@@ -841,6 +840,8 @@ function resolverKronk(id){
         poseDano('kronk');
         floats('kronk',5,'dano');
         anim('kronk','golpeado');
+      } else {
+        vozBryneEsquivou();
       }
       // Bryne não tem mais animação de esquiva — permanece na pose atual (base ou defesa)
     }
@@ -1001,6 +1002,7 @@ function impacto(quem, tipo){
 
 /* ---- Sistema de poses (base / ataque / defesa) ---- */
 const timersPose = {kronk:null, bryne:null};
+const videoEndListeners = {kronk:null, bryne:null};
 
 function setPose(quem, pose){
   const el=document.getElementById(quem);
@@ -1033,14 +1035,50 @@ function poseRepouso(quem){
   return emDefesa ? 'defesa' : 'base';
 }
 
-// pose temporária que ao final chama computeReturnPose() (avaliado no momento do timeout, não do disparo)
+// limpa qualquer temporizador/listener pendente de uma troca de pose anterior
+function limparTrocaPendente(quem){
+  if(timersPose[quem]){ clearTimeout(timersPose[quem]); timersPose[quem]=null; }
+  if(videoEndListeners[quem]){
+    videoEndListeners[quem].vid.removeEventListener('ended', videoEndListeners[quem].fn);
+    if(videoEndListeners[quem].intervalId) clearInterval(videoEndListeners[quem].intervalId);
+    videoEndListeners[quem]=null;
+  }
+}
+
+// pose temporária que ao final chama computeReturnPose() (avaliado no momento da troca, não do disparo)
+// usa o evento real 'ended' do vídeo quando disponível (sincroniza com o vídeo de verdade,
+// não com um tempo chutado) — com um timer de segurança generoso caso 'ended' não dispare.
 function poseTemporariaCustom(quem, pose, dur, computeReturnPose){
-  if(timersPose[quem]) clearTimeout(timersPose[quem]);
+  limparTrocaPendente(quem);
   setPose(quem, pose);
-  timersPose[quem] = setTimeout(()=>{
+  const el = document.getElementById(quem);
+  const cv = el.querySelector('canvas.pose-'+pose);
+
+  const finalizar = () => {
+    limparTrocaPendente(quem);
     setPose(quem, computeReturnPose());
-    timersPose[quem]=null;
-  }, dur||2200);
+  };
+
+  if(cv && cv._vid && cv.dataset.falhou!=='1'){
+    const vid = cv._vid;
+    let jaFinalizou = false;
+    const finalizarUmaVez = () => { if(!jaFinalizou){ jaFinalizou=true; finalizar(); } };
+    const onEnded = () => finalizarUmaVez();
+    vid.addEventListener('ended', onEnded, {once:true});
+    // sondagem: em alguns navegadores/codecs 'ended' não dispara mesmo com
+    // currentTime já igual à duração — então verificamos isso também, a cada 80ms
+    const intervalId = setInterval(()=>{
+      if(vid.ended || (vid.duration && vid.currentTime >= vid.duration - 0.08)){
+        clearInterval(intervalId);
+        finalizarUmaVez();
+      }
+    }, 80);
+    videoEndListeners[quem] = {vid, fn:onEnded, intervalId};
+    // rede de segurança generosa (1.6x a duração esperada) caso nada acima dispare
+    timersPose[quem] = setTimeout(finalizarUmaVez, (dur||2200)*1.6);
+  } else {
+    timersPose[quem] = setTimeout(finalizar, dur||2200);
+  }
 }
 function poseTemporaria(quem, pose, dur){
   poseTemporariaCustom(quem, pose, dur, ()=>poseRepouso(quem));
@@ -1084,20 +1122,20 @@ function poseDefesa(quem){
     const el=document.getElementById('bryne');
     const jaEmDefesa = el.querySelector('.pose-defesa.ativa') || el.querySelector('.pose-entradadefesa.ativa');
     if(jaEmDefesa) return; // já entrando/em guarda — não repete a transição
-    if(timersPose.bryne){ clearTimeout(timersPose.bryne); timersPose.bryne=null; }
+    limparTrocaPendente('bryne');
     setPose('bryne','entradadefesa');
     timersPose.bryne = setTimeout(()=>{
+      limparTrocaPendente('bryne');
       setPose('bryne','defesa');
-      timersPose.bryne=null;
     }, 1700);
     return;
   }
-  if(timersPose[quem]){ clearTimeout(timersPose[quem]); timersPose[quem]=null; }
+  limparTrocaPendente(quem);
   setPose(quem,'defesa');
 }
 
 function poseBase(quem){
-  if(timersPose[quem]){ clearTimeout(timersPose[quem]); timersPose[quem]=null; }
+  limparTrocaPendente(quem);
   setPose(quem,'base');
 }
 function abalar(){
@@ -1342,6 +1380,7 @@ function configurarVideosIdle(){
     };
 
     let proc, pctx;
+    const ESCALA_PROC = 0.35; // processa numa fração menor da resolução e amplia ao exibir
 
     function loop(){
       requestAnimationFrame(loop);
@@ -1349,15 +1388,16 @@ function configurarVideosIdle(){
       if(!canvas.classList.contains('ativa')) return;
       if(vid.readyState < 2 || !vid.videoWidth) return;
       if(vid.paused && !vid.ended) vid.play().catch(()=>{});
-      if(!proc || proc.width!==vid.videoWidth){
+      const pw = Math.round(vid.videoWidth*ESCALA_PROC), ph = Math.round(vid.videoHeight*ESCALA_PROC);
+      if(!proc || proc.width!==pw){
         proc = document.createElement('canvas');
-        proc.width = vid.videoWidth; proc.height = vid.videoHeight;
+        proc.width = pw; proc.height = ph;
         pctx = proc.getContext('2d', {willReadFrequently:true});
         canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
       }
-      pctx.drawImage(vid,0,0,proc.width,proc.height);
+      pctx.drawImage(vid,0,0,pw,ph);
       let frame;
-      try{ frame = pctx.getImageData(0,0,proc.width,proc.height); }
+      try{ frame = pctx.getImageData(0,0,pw,ph); }
       catch(e){ usarFallback(); return; }
       const d = frame.data;
       for(let i=0;i<d.length;i+=4){
@@ -1374,7 +1414,10 @@ function configurarVideosIdle(){
           d[i+1] = Math.round((r+b)/2);
         }
       }
-      ctx.putImageData(frame,0,0);
+      pctx.putImageData(frame,0,0);
+      // amplia o resultado processado (pequeno) para o canvas final (tamanho real de exibição)
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.drawImage(proc,0,0,pw,ph,0,0,canvas.width,canvas.height);
     }
 
     vid.addEventListener('loadeddata', ()=>{ ok=true; });
