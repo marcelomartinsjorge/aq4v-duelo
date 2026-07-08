@@ -512,7 +512,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v3';
+const BUILD_VERSION = 'v4';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1401,10 +1401,11 @@ function configurarVideosIdle(){
       for(let i=0;i<d.length;i+=4){
         const r=d[i], g=d[i+1], b=d[i+2];
         const brilho = (r+g+b)/3;
-        // verde saturado de verdade (fundo): R e B bem abaixo da metade de G
-        const verdePuro = (r < g*0.5) && (b < g*0.5) && g>40;
+        // verde do fundo (real, não é um verde puro de estúdio — varia com a
+        // iluminação e por isso usa margem relativa a G em vez de r<g/2 fixo)
+        const verdePuro = (g-r>45) && (g-b>35) && g>35;
         // sombra escura do fundo verde (baixo brilho + leve tom esverdeado)
-        const sombra = !verdePuro && brilho<95 && (g-r>7) && (g-b>7);
+        const sombra = !verdePuro && brilho<110 && (g-r>5) && (g-b>5);
         if(verdePuro || sombra){
           d[i+3]=0;
         } else if(g-b>10 && g-r>10){
