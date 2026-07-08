@@ -581,7 +581,7 @@ function jogadorAge(id){
   resolverBryne(id);
   // o resultado pode vir com atraso (DELAY_IMPACTO); verifica fim depois disso
   setTimeout(()=>{ if(verificarFim()) return; }, DELAY_IMPACTO+150);
-  setTimeout(()=>{ if(!S.over) faseKronk(); }, 3700);
+  setTimeout(()=>{ if(!S.over) faseKronk(); }, 8300);
 }
 
 function faseKronk(){
@@ -1052,21 +1052,23 @@ function poseAtaque(quem){
     return;
   }
   // Bryne: ataque muda conforme ela já estar ou não em postura defensiva
+  // durações batem com o vídeo completo (96 frames=4000ms idle / 192 frames=8000ms da defesa)
   const emDefesa = !!(S.ef.terreno||S.ef.leitura||S.ef.parede);
   const pose = emDefesa ? 'ataquedadefesa' : 'ataque';
-  poseTemporariaCustom('bryne', pose, emDefesa?3600:2200, ()=>'base'); // atacar sempre sai da guarda
+  poseTemporariaCustom('bryne', pose, emDefesa?8000:4000, ()=>'base'); // atacar sempre sai da guarda
 }
 
 // Bryne contra-ataca (gatilho específico de Usar o Terreno quando o inimigo erra)
 function poseContraataque(){
-  poseTemporariaCustom('bryne','contraataque', 3600, ()=>'base');
+  poseTemporariaCustom('bryne','contraataque', 8000, ()=>'base'); // vídeo completo: 192 frames=8000ms
 }
 
 function poseDano(quem){
   if(quem==='bryne'){
     const emDefesa = !!(S.ef.terreno||S.ef.leitura||S.ef.parede);
     const pose = emDefesa ? 'danodefesa' : 'dano';
-    poseTemporariaCustom('bryne', pose, emDefesa?2900:2200, ()=>poseRepouso('bryne'));
+    // vídeo completo: idle=96 frames=4000ms / defesa=168 frames=7000ms
+    poseTemporariaCustom('bryne', pose, emDefesa?7000:4000, ()=>poseRepouso('bryne'));
     return;
   }
   poseTemporariaCustom('kronk','dano',2200, ()=>poseRepouso('kronk'));
