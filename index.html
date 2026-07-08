@@ -512,7 +512,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v5';
+const BUILD_VERSION = 'v7';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1434,26 +1434,36 @@ function configurarVideosIdle(){
           integral[rowBase+x+1] = integral[prevRowBase+x+1] + rowSum;
         }
       }
-      const RAIO=4, BOOST=0.9;
-      function mediaJanela(cx,cy){
-        const x0=cx-RAIO<0?0:cx-RAIO, x1=cx+RAIO>=W?W-1:cx+RAIO;
-        const y0=cy-RAIO<0?0:cy-RAIO, y1=cy+RAIO>=H?H-1:cy+RAIO;
+      function mediaJanela(cx,cy,raio){
+        const x0=cx-raio<0?0:cx-raio, x1=cx+raio>=W?W-1:cx+raio;
+        const y0=cy-raio<0?0:cy-raio, y1=cy+raio>=H?H-1:cy+raio;
         const A=integral[y0*(W+1)+x0], B=integral[y0*(W+1)+x1+1];
         const C=integral[(y1+1)*(W+1)+x0], D=integral[(y1+1)*(W+1)+x1+1];
         const area=(x1-x0+1)*(y1-y0+1);
         return (D-B-C+A)/area;
       }
 
-      // 2ª passada: se a vizinhança é majoritariamente opaca, "cura" buraquinhos
-      // isolados (reflexo verde num reflexo metálico da armadura), sem restaurar
-      // áreas grandes que são realmente fundo (a vizinhança lá também é transparente)
+      // 2ª passada, duas janelas na MESMA imagem integral (praticamente de graça,
+      // é só mais uma consulta O(1) por pixel):
+      // - janela PEQUENA (raio 6): o alpha final vira a média da vizinhança
+      //   próxima. Fecha buraquinho isolado DENTRO da armadura (vizinhança
+      //   majoritariamente opaca puxa pra opaco) e deixa bordas em movimento
+      //   (espada em golpe rápido) esmaecerem suavemente.
+      // - janela GRANDE (raio 40): se a vizinhança BEM mais larga ao redor do
+      //   pixel é quase toda transparente, é sinal de que esse pixel está
+      //   isolado no meio do fundo de verdade (ex.: uma mancha grande e fraca
+      //   de verde desbotado bem longe da silhueta) — nesse caso força
+      //   transparente total, mesmo que a janela pequena sozinha não bastasse
+      //   pra zerar (a mancha pode ser maior que a janela pequena).
+      // Perto da silhueta real a janela grande sempre acha bastante opacidade
+      // por perto, então isso não mexe no corpo/espada.
       for(let i=0, p=0; i<d.length; i+=4, p++){
-        const raw = alphaBuf[p];
-        let final = raw;
-        if(raw<250){
-          const cx = p % W, cy = (p/W)|0;
-          const media = mediaJanela(cx,cy)*BOOST;
-          if(media>raw) final = media;
+        const cx = p % W, cy = (p/W)|0;
+        const pequena = mediaJanela(cx,cy,6);
+        let final = pequena;
+        if(pequena>0){
+          const grande = mediaJanela(cx,cy,40);
+          if(grande<15) final = 0;
         }
         const r=d[i], g=d[i+1], b=d[i+2];
         if(final>0 && g-b>10 && g-r>10){
