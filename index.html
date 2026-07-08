@@ -512,7 +512,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v4';
+const BUILD_VERSION = 'v5';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1398,20 +1398,69 @@ function configurarVideosIdle(){
       try{ frame = pctx.getImageData(0,0,proc.width,proc.height); }
       catch(e){ usarFallback(); return; }
       const d = frame.data;
-      for(let i=0;i<d.length;i+=4){
+      const W = proc.width, H = proc.height;
+      const n = W*H;
+      // buffers reaproveitados entre frames (evita realocar/GC toda hora)
+      if(!canvas._alphaBuf || canvas._alphaBuf.length!==n){
+        canvas._alphaBuf = new Float32Array(n);
+        canvas._integral = new Float64Array((W+1)*(H+1));
+      }
+      const alphaBuf = canvas._alphaBuf;
+      const integral = canvas._integral;
+
+      // 1ª passada: alpha CONTÍNUO (não é on/off) baseado em quão "verde de fundo"
+      // o pixel parece. Isso deixa bordas em movimento (ex: espada em golpe rápido,
+      // que se mistura opticamente com o fundo verde no motion blur) esmaecerem
+      // suavemente em vez de sumir de vez ou ficar um bloco sólido verde/cinza.
+      const LOW=15, HIGH=55; // faixa de transição (abaixo=opaco, acima=transparente)
+      for(let i=0, p=0; i<d.length; i+=4, p++){
         const r=d[i], g=d[i+1], b=d[i+2];
-        const brilho = (r+g+b)/3;
-        // verde do fundo (real, não é um verde puro de estúdio — varia com a
-        // iluminação e por isso usa margem relativa a G em vez de r<g/2 fixo)
-        const verdePuro = (g-r>45) && (g-b>35) && g>35;
-        // sombra escura do fundo verde (baixo brilho + leve tom esverdeado)
-        const sombra = !verdePuro && brilho<110 && (g-r>5) && (g-b>5);
-        if(verdePuro || sombra){
-          d[i+3]=0;
-        } else if(g-b>10 && g-r>10){
-          // reflexo leve de verde em superfície clara/metálica (ex: espada) — só despill, mantém opaco
+        const score = Math.min(g-r, g-b); // quanto maior, mais "verde de fundo"
+        let a;
+        if(score<=LOW) a=255;
+        else if(score>=HIGH) a=0;
+        else a = 255*(1-(score-LOW)/(HIGH-LOW));
+        alphaBuf[p]=a;
+      }
+
+      // imagem integral (soma acumulada) do alpha, pra consultar a média de uma
+      // janela ao redor de cada pixel em O(1)
+      for(let y=0;y<H;y++){
+        let rowSum=0;
+        const rowBase=(y+1)*(W+1);
+        const prevRowBase=y*(W+1);
+        for(let x=0;x<W;x++){
+          rowSum += alphaBuf[y*W+x];
+          integral[rowBase+x+1] = integral[prevRowBase+x+1] + rowSum;
+        }
+      }
+      const RAIO=4, BOOST=0.9;
+      function mediaJanela(cx,cy){
+        const x0=cx-RAIO<0?0:cx-RAIO, x1=cx+RAIO>=W?W-1:cx+RAIO;
+        const y0=cy-RAIO<0?0:cy-RAIO, y1=cy+RAIO>=H?H-1:cy+RAIO;
+        const A=integral[y0*(W+1)+x0], B=integral[y0*(W+1)+x1+1];
+        const C=integral[(y1+1)*(W+1)+x0], D=integral[(y1+1)*(W+1)+x1+1];
+        const area=(x1-x0+1)*(y1-y0+1);
+        return (D-B-C+A)/area;
+      }
+
+      // 2ª passada: se a vizinhança é majoritariamente opaca, "cura" buraquinhos
+      // isolados (reflexo verde num reflexo metálico da armadura), sem restaurar
+      // áreas grandes que são realmente fundo (a vizinhança lá também é transparente)
+      for(let i=0, p=0; i<d.length; i+=4, p++){
+        const raw = alphaBuf[p];
+        let final = raw;
+        if(raw<250){
+          const cx = p % W, cy = (p/W)|0;
+          const media = mediaJanela(cx,cy)*BOOST;
+          if(media>raw) final = media;
+        }
+        const r=d[i], g=d[i+1], b=d[i+2];
+        if(final>0 && g-b>10 && g-r>10){
+          // reflexo leve de verde em superfície clara/metálica — despill, mantém a cor mais neutra
           d[i+1] = Math.round((r+b)/2);
         }
+        d[i+3] = final<0?0:(final>255?255:final);
       }
       ctx.putImageData(frame,0,0);
     }
