@@ -512,7 +512,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v8';
+const BUILD_VERSION = 'v9';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1066,13 +1066,15 @@ function poseTemporariaCustom(quem, pose, dur, computeReturnPose){
     const onEnded = () => finalizarUmaVez();
     vid.addEventListener('ended', onEnded, {once:true});
     // sondagem: em alguns navegadores/codecs 'ended' não dispara mesmo com
-    // currentTime já igual à duração — então verificamos isso também, a cada 80ms
+    // currentTime já igual à duração — então verificamos isso também, com
+    // margem mínima (bem menor que 1 frame a 24fps = 0.0417s) para não
+    // cortar os últimos quadros do vídeo (ex.: retorno natural à idle)
     const intervalId = setInterval(()=>{
-      if(vid.ended || (vid.duration && vid.currentTime >= vid.duration - 0.08)){
+      if(vid.ended || (vid.duration && vid.currentTime >= vid.duration - 0.02)){
         clearInterval(intervalId);
         finalizarUmaVez();
       }
-    }, 80);
+    }, 30);
     videoEndListeners[quem] = {vid, fn:onEnded, intervalId};
     // rede de segurança generosa (1.6x a duração esperada) caso nada acima dispare
     timersPose[quem] = setTimeout(finalizarUmaVez, (dur||2200)*1.6);
