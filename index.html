@@ -512,7 +512,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v7';
+const BUILD_VERSION = 'v8';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1090,7 +1090,7 @@ function poseAtaque(quem){
     return;
   }
   // Bryne: ataque muda conforme ela já estar ou não em postura defensiva
-  // durações batem com o vídeo completo (96 frames=4000ms idle / 192 frames=8000ms da defesa)
+  // durações batem com o vídeo completo (96 frames=4000ms idle / 192 frames=8000ms da defesa, vídeo v2 já retorna sozinha ao idle no final)
   const emDefesa = !!(S.ef.terreno||S.ef.leitura||S.ef.parede);
   const pose = emDefesa ? 'ataquedadefesa' : 'ataque';
   poseTemporariaCustom('bryne', pose, emDefesa?8000:4000, ()=>'base'); // atacar sempre sai da guarda
@@ -1098,7 +1098,7 @@ function poseAtaque(quem){
 
 // Bryne contra-ataca (gatilho específico de Usar o Terreno quando o inimigo erra)
 function poseContraataque(){
-  poseTemporariaCustom('bryne','contraataque', 8000, ()=>'base'); // vídeo completo: 192 frames=8000ms
+  poseTemporariaCustom('bryne','contraataque', 6834, ()=>'base'); // vídeo completo (v3): 164 frames a 24fps=6834ms
 }
 
 function poseDano(quem){
