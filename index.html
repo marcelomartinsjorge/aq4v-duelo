@@ -1380,7 +1380,6 @@ function configurarVideosIdle(){
     };
 
     let proc, pctx;
-    const ESCALA_PROC = 0.35; // processa numa fração menor da resolução e amplia ao exibir
 
     function loop(){
       requestAnimationFrame(loop);
@@ -1388,16 +1387,15 @@ function configurarVideosIdle(){
       if(!canvas.classList.contains('ativa')) return;
       if(vid.readyState < 2 || !vid.videoWidth) return;
       if(vid.paused && !vid.ended) vid.play().catch(()=>{});
-      const pw = Math.round(vid.videoWidth*ESCALA_PROC), ph = Math.round(vid.videoHeight*ESCALA_PROC);
-      if(!proc || proc.width!==pw){
+      if(!proc || proc.width!==vid.videoWidth){
         proc = document.createElement('canvas');
-        proc.width = pw; proc.height = ph;
+        proc.width = vid.videoWidth; proc.height = vid.videoHeight;
         pctx = proc.getContext('2d', {willReadFrequently:true});
         canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
       }
-      pctx.drawImage(vid,0,0,pw,ph);
+      pctx.drawImage(vid,0,0,proc.width,proc.height);
       let frame;
-      try{ frame = pctx.getImageData(0,0,pw,ph); }
+      try{ frame = pctx.getImageData(0,0,proc.width,proc.height); }
       catch(e){ usarFallback(); return; }
       const d = frame.data;
       for(let i=0;i<d.length;i+=4){
@@ -1414,10 +1412,7 @@ function configurarVideosIdle(){
           d[i+1] = Math.round((r+b)/2);
         }
       }
-      pctx.putImageData(frame,0,0);
-      // amplia o resultado processado (pequeno) para o canvas final (tamanho real de exibição)
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.drawImage(proc,0,0,pw,ph,0,0,canvas.width,canvas.height);
+      ctx.putImageData(frame,0,0);
     }
 
     vid.addEventListener('loadeddata', ()=>{ ok=true; });
