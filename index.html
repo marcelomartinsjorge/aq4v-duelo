@@ -1362,9 +1362,15 @@ function configurarVideosIdle(){
       const d = frame.data;
       for(let i=0;i<d.length;i+=4){
         const r=d[i], g=d[i+1], b=d[i+2];
-        if(g-b>10 && g-r>10){
+        const brilho = (r+g+b)/3;
+        // verde saturado de verdade (fundo): R e B bem abaixo da metade de G
+        const verdePuro = (r < g*0.5) && (b < g*0.5) && g>40;
+        // sombra escura do fundo verde (baixo brilho + leve tom esverdeado)
+        const sombra = !verdePuro && brilho<95 && (g-r>7) && (g-b>7);
+        if(verdePuro || sombra){
           d[i+3]=0;
-        } else if(g-b>4 && g-r>4){
+        } else if(g-b>10 && g-r>10){
+          // reflexo leve de verde em superfície clara/metálica (ex: espada) — só despill, mantém opaco
           d[i+1] = Math.round((r+b)/2);
         }
       }
