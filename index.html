@@ -499,7 +499,7 @@
 
 </div>
 
-<audio id="bgm" src="Duty_Calls_-_Rod_Kim.mp3" loop preload="auto"></audio>
+<audio id="bgm" loop preload="auto"></audio>
 
 <script>
 "use strict";
@@ -510,6 +510,11 @@
    ==================================================================== */
 
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+// Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
+// o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
+const BUILD_VERSION = 'v3';
+function cb(url){ return url + '?' + BUILD_VERSION; }
+document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
 const DELAY_IMPACTO_KRONK = 2800; // Kronk: a maça só desce perto do fim do vídeo
 
@@ -1243,7 +1248,7 @@ const mecKronkMiss = 'kronkmiss.mp3';
 function tocar(arquivo, vol){
   if(mutado) return;
   try{
-    const a = new Audio(arquivo);
+    const a = new Audio(cb(arquivo));
     a.volume = (vol==null?VOL_VOZ:vol);
     a.play().catch(()=>{});
   }catch(e){}
@@ -1315,7 +1320,7 @@ function configurarVideosIdle(){
     const ctx = canvas.getContext('2d', {willReadFrequently:true});
 
     const vid = document.createElement('video');
-    vid.src = canvas.dataset.video;
+    vid.src = cb(canvas.dataset.video);
     vid.dataset.atual = canvas.dataset.video;
     vid.loop = ehLoop; vid.muted = true; vid.playsInline = true;
     vid.setAttribute('playsinline','');
