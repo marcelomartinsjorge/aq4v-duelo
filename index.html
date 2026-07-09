@@ -94,27 +94,16 @@
     z-index:3;
   }
 
-  /* Correção de tamanho aparente do Kronk por pose.
-     Cada vídeo do Kronk tem uma proporção largura/altura diferente (poses de
-     ataque/golpe são bem mais largas, por causa do alcance do braço+arma), e
-     como `.lutador canvas` usa object-fit:contain numa caixa (#kronk) de
-     proporção fixa, um vídeo proporcionalmente mais largo "sobra" menos
-     altura dentro da caixa — o personagem aparece bem menor mesmo sendo o
-     mesmo tamanho de corpo. Aqui compenso isso com transform:scale() a
-     partir da base (bottom), calculado pra cada pose bater com o tamanho do
-     idle (pose-base). Escala nunca ultrapassa o próprio idle (com uma
-     margem de segurança de ~5%), então não corre risco de cortar a cabeça
-     no topo da cena — o idle já cabe com folga. Medido comparando a altura
-     ocupada pelo personagem em tela (em fração da caixa #kronk) em cada
-     vídeo já publicado. Ver RESUMO_PROJETO_JOGO.md, "CORREÇÃO v14".
+  /* v14 tentou corrigir o tamanho aparente do Kronk por pose com
+     transform:scale() por classe (#kronk .pose-X). Usuário reportou que
+     ficou GIGANTE (principalmente as poses de fúria), pior que o problema
+     original de tamanho pequeno no ataque. Removido na v15 até eu conseguir
+     entender exatamente por que a matemática (que devia ser segura, escalando
+     a partir da base) não bateu com o resultado real no navegador — sem
+     acesso a um browser de verdade pra depurar isso com segurança, é melhor
+     reverter do que arriscar piorar de novo. Ver RESUMO_PROJETO_JOGO.md,
+     "CORREÇÃO v15".
   */
-  #kronk .pose-ataque{ transform:scale(1.60); transform-origin:center bottom; }
-  #kronk .pose-dano{ transform:scale(0.84); transform-origin:center bottom; }
-  #kronk .pose-rageataque{ transform:scale(1.04); transform-origin:center bottom; }
-  #kronk .pose-ragedano{ transform:scale(1.39); transform-origin:center bottom; }
-  #kronk .pose-defesa{ transform:scale(1.07); transform-origin:center bottom; }
-  #kronk .pose-entrarage{ transform:scale(1.55); transform-origin:center bottom; }
-  #kronk .pose-ragetonormal{ transform:scale(1.85); transform-origin:center bottom; }
 
   .lutador.golpeado{animation:tremer .35s ease;}
   @keyframes tremer{
@@ -542,7 +531,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v14';
+const BUILD_VERSION = 'v15';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
