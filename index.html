@@ -114,7 +114,7 @@
   #kronk .pose-dano{ transform:scale(0.93); transform-origin:center bottom; } /* vídeo recortado de novo (v18) pra não cortar o braço esquerdo */
   #kronk .pose-rageataque{ transform:scale(1.01); transform-origin:center bottom; }
   #kronk .pose-ragedano{ transform:scale(1.46); transform-origin:center bottom; }
-  #kronk .pose-defesa{ transform:scale(1.00); transform-origin:center bottom; }
+  #kronk .pose-defesa{ transform:scale(1.33); transform-origin:center bottom; } /* v19: vídeo novo enviado pelo usuário (kronkrageidle_v2), sem a aura de fogo */
   #kronk .pose-entrarage{ transform:scale(1.52); transform-origin:center bottom; } /* v18: vídeo reprocessado (mancha cinza removida + recorte mais justo pra caber sem estourar demais a largura) */
   #kronk .pose-ragetonormal{ transform:scale(1.75); transform-origin:center bottom; } /* v18: vídeo recortado mais justo (era 1280x720 com muita margem lateral) */
 
@@ -502,7 +502,7 @@
       <img class="pose-ataque-fallback" src="kronkataca.png" alt="Kronk atacando">
       <canvas class="pose-pressao" data-video="kronkpressao_normal.webm"></canvas>
       <img class="pose-pressao-fallback" src="kronkataca.png" alt="Kronk pressionando">
-      <canvas class="pose-defesa" data-video="kronkrage_idle_norm.webm" data-rage="1"></canvas>
+      <canvas class="pose-defesa" data-video="kronkrageidle_v2.webm" data-rage="1"></canvas>
       <img class="pose-defesa-fallback" src="kronkrage.png" alt="Kronk enfurecido">
       <canvas class="pose-dano" data-video="kronkbeenhit_anim_norm.webm"></canvas>
       <img class="pose-dano-fallback" src="kronkbeenhit.png" alt="Kronk ferido">
@@ -562,7 +562,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v18';
+const BUILD_VERSION = 'v19';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
