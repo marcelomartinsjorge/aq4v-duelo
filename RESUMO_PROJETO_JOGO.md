@@ -546,6 +546,23 @@ Usuário confirmou que a v20 "evoluiu bastante", mas reportou 3 problemas residu
 
 ---
 
+### 🔴 CORREÇÃO v22 — CRÍTICO: `pose-defesa` (rage idle) estava usando uma conversão preto→verde sintética, causando pontinhos pretos e buracos de cabelo/corpo
+
+Depois do v21, usuário mandou print real do jogo (canvas capturado via `toDataURL()` no console, não foto) mostrando pontos pretos espalhados pelo corpo do Kronk em fúria parado (`pose-defesa`). Investigação profunda (comparado com o vídeo original, canal alpha isolado, ~8 variações de algoritmo testadas): a causa raiz é que `kronkrageidle_v2.webm` (o vídeo usado até então) tinha sido gerado a partir de `Kronkrageidlev2.mp4`, que tem **fundo PRETO**, não verde. Meu processo (`black_to_green.py`) convertia preto→verde sintético, e DEPOIS o jogo rodava seu próprio removedor de chroma AO VIVO em cima disso de novo — essa dupla conversão criava uma incompatibilidade entre a transição suave que eu pintava e os limiares que o algoritmo ao vivo espera, resultando em pixels de borda ambíguos que ora viravam pontos pretos, ora (se eu tentava corrigir) uma auréola verde ao redor do personagem. Testei ~8 abordagens diferentes (ajustar despill, estreitar faixa de transição, isolamento mais agressivo, reconstruir score sintético, canal alpha próprio via double-height video) — todas trocavam um defeito por outro, nenhuma resolvia de verdade.
+
+**Solução real:** o usuário tinha o vídeo original com fundo verde DE VERDADE (`kronkrageidle.mp4`, 1280x720, com pillarbox preto nas laterais) — a "imagem base" que ele usou pra gerar as animações por IA. Ao usar esse arquivo diretamente (sem a conversão preto→verde sintética), o problema desaparece quase por completo. Detalhes do processamento:
+- O pillarbox tem um degradê suave pro preto nas bordas (não um corte seco) — recortar exatamente nos limites do "conteúdo visível" ainda deixa uma faixa escura residual. Precisei recortar mais pra dentro (verificando coluna por coluna onde o verde fica 100% uniforme) — recorte final `crop=965:720:155:0`.
+- O verde de fundo desse vídeo é bem mais escuro/dessaturado (`RGB≈83,147,94`) que um green-screen padrão, com score (`g-r`,`g-b`) natural em torno de 51-53 — perigosamente perto do limiar HIGH=55 do algoritmo ao vivo, o que causava uma "névoa" cinza fantasma no fundo (pixels do fundo ficando parcialmente opacos por ruído mínimo de compressão). Fix: um pré-processamento (`prekey_realgreen.py`) que faz sua própria chave de chroma com limiares ajustados a esse verde específico (LOW=15, HIGH=35, cicatrização de buraco mais fraca, isolamento com raio 30/limiar 50) e repinta o fundo como verde puro e saturado (0,255,0) — dando bastante margem de segurança antes do jogo rodar seu removedor ao vivo por cima.
+- Resultado verificado quadro a quadro (frames 010, 040, 060, 070, 089): cabelo, corpo e adereços 100% intactos, sem pontinhos, sem névoa cinza.
+
+**Arquivo trocado:** `data-video` de `pose-defesa` agora aponta pra `kronkrageidle_v3.webm` (964x720). Scale recalculado do zero com a metodologia padrão (`A=1.0323`): vídeo bem mais largo que os outros (`Va=1.34`), então fica limitado pela largura da caixa — scale final **1.43** (bem diferente do 0.97 anterior, porque a proporção do vídeo mudou completamente).
+
+`BUILD_VERSION` foi pra `v22`.
+
+**Lição:** quando um vídeo de fundo preto precisa ser convertido pra verde sintético pra passar pelo removedor de chroma ao vivo existente, isso é uma dupla conversão arriscada — sempre perguntar antes se existe uma versão com green-screen real, em vez de assumir que a conversão sintética é equivalente.
+
+---
+
 ## 5. BUG DO CONGELAMENTO (RESOLVIDO, mas frágil)
 
 Vídeos WebM neste projeto às vezes chegam em `currentTime === duration` mas o evento `ended` **não dispara** (bug de navegador/codec). Isso causava congelamento no fim de animações longas (contra-ataque, 8s).

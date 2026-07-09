@@ -113,7 +113,7 @@
   #kronk .pose-dano{ transform:scale(1.07); transform-origin:center bottom; }
   #kronk .pose-rageataque{ transform:scale(1.15); transform-origin:center bottom; } /* v21: vídeo reprocessado (mancha cinza, fix específico p/ preservar cabelo/maça escuros) + ajuste fino igual ao ataque normal */
   #kronk .pose-ragedano{ transform:scale(1.04); transform-origin:center bottom; }
-  #kronk .pose-defesa{ transform:scale(0.97); transform-origin:center bottom; }
+  #kronk .pose-defesa{ transform:scale(1.43); transform-origin:center bottom; } /* v22: vídeo trocado de novo -- usuário mandou o green-screen ORIGINAL de verdade (kronkrageidle.mp4), fundo verde real (83,147,94), não mais a conversão preto->verde sintética que causava pontinhos pretos/buracos no cabelo. Recortado sem a faixa de vinheta nas bordas (pillarbox tinha um degradê pro preto, não corte seco) e re-chaveado com limiar mais estreito (LOW15/HIGH35) ajustado a esse verde específico (mais escuro que um green-screen padrão). Escala recalculada do zero (vídeo 964x720, bem mais largo que os outros) */
   #kronk .pose-entrarage{ transform:scale(1.05); transform-origin:center bottom; }
   #kronk .pose-ragetonormal{ transform:scale(1.22); transform-origin:center bottom; } /* v21: vídeo reprocessado de novo (mancha cinza entre braço e tronco, mesmo tipo do entrarage) */
   #kronk .pose-pressao{ transform:scale(1.03); transform-origin:center bottom; }
@@ -502,7 +502,7 @@
       <img class="pose-ataque-fallback" src="kronkataca.png" alt="Kronk atacando">
       <canvas class="pose-pressao" data-video="kronkpressao_normal.webm"></canvas>
       <img class="pose-pressao-fallback" src="kronkataca.png" alt="Kronk pressionando">
-      <canvas class="pose-defesa" data-video="kronkrageidle_v2.webm" data-rage="1"></canvas>
+      <canvas class="pose-defesa" data-video="kronkrageidle_v3.webm" data-rage="1"></canvas>
       <img class="pose-defesa-fallback" src="kronkrage.png" alt="Kronk enfurecido">
       <canvas class="pose-dano" data-video="kronkbeenhit_anim_norm.webm"></canvas>
       <img class="pose-dano-fallback" src="kronkbeenhit.png" alt="Kronk ferido">
@@ -562,7 +562,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v21';
+const BUILD_VERSION = 'v22';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
