@@ -94,29 +94,29 @@
     z-index:3;
   }
 
-  /* Correção de tamanho aparente do Kronk por pose (v18).
-     Histórico: a v14 calculou o fator "matematicamente correto" sem poder
-     testar num navegador de verdade — resultado: ficou GIGANTE. A v15
-     reverteu tudo. A v16 tentou validar "ao vivo" via Claude in Chrome, mas
-     descobrimos na v18 que o navegador automatizado NUNCA conseguiu
-     decodificar os vídeos webm (trava em readyState=0) — ou seja, a v16 na
-     verdade calibrou contra a IMAGEM ESTÁTICA DE FALLBACK, não o vídeo real.
-     Isso explica por que "ataque" continuava menor e "entrando em fúria"
-     continuava mto pequeno mesmo depois da v16.
-     A v18 mede de verdade: pega um frame real de cada vídeo (ffmpeg),
-     aplica o MESMO algoritmo de chroma key em Python pra saber quanto do
-     quadro é personagem, cruza com a matemática de object-fit:contain pra
-     achar o scale que iguala a altura aparente ao idle, e confere o
-     resultado renderizando a mesma composição (contain+transform) fora do
-     navegador. Ver RESUMO_PROJETO_JOGO.md, "CORREÇÃO v18".
+  /* Correção de tamanho aparente do Kronk por pose (v20).
+     BUG CRÍTICO encontrado e corrigido na v20: da v14 até a v19, todo o
+     cálculo de escala usou A = 36/62 = 0.58 como "proporção da caixa
+     #kronk". Isso está ERRADO: width:36% e height:62% do #kronk são
+     relativos a dimensões DIFERENTES do .cena (que tem aspect-ratio:16/9,
+     não é quadrado!). A proporção real em pixels da caixa é
+     (0.36*16)/(0.62*9) = 1.03 — quase quadrada, bem diferente de 0.58
+     (bem mais estreita/alta). Usar o valor errado fez o cálculo achar que
+     quase todo vídeo "sobrava menos altura" do que realmente sobra,
+     inflando o scale necessário pra cada pose (esse é o motivo real do
+     "ficou gigante"/"saiu da tela" depois da v18/v19 — não era cache).
+     Refeito do zero com A correto (1.03) e revalidado com a mesma técnica
+     (frame real + chroma key simulado em Python + render fora do
+     navegador). Ver RESUMO_PROJETO_JOGO.md, "CORREÇÃO v20".
   */
-  #kronk .pose-ataque{ transform:scale(1.62); transform-origin:center bottom; }
-  #kronk .pose-dano{ transform:scale(0.93); transform-origin:center bottom; } /* vídeo recortado de novo (v18) pra não cortar o braço esquerdo */
-  #kronk .pose-rageataque{ transform:scale(1.01); transform-origin:center bottom; }
-  #kronk .pose-ragedano{ transform:scale(1.46); transform-origin:center bottom; }
-  #kronk .pose-defesa{ transform:scale(1.33); transform-origin:center bottom; } /* v19: vídeo novo enviado pelo usuário (kronkrageidle_v2), sem a aura de fogo */
-  #kronk .pose-entrarage{ transform:scale(1.52); transform-origin:center bottom; } /* v18: vídeo reprocessado (mancha cinza removida + recorte mais justo pra caber sem estourar demais a largura) */
-  #kronk .pose-ragetonormal{ transform:scale(1.75); transform-origin:center bottom; } /* v18: vídeo recortado mais justo (era 1280x720 com muita margem lateral) */
+  #kronk .pose-ataque{ transform:scale(1.12); transform-origin:center bottom; }
+  #kronk .pose-dano{ transform:scale(1.07); transform-origin:center bottom; }
+  #kronk .pose-rageataque{ transform:scale(0.97); transform-origin:center bottom; }
+  #kronk .pose-ragedano{ transform:scale(1.04); transform-origin:center bottom; }
+  #kronk .pose-defesa{ transform:scale(0.97); transform-origin:center bottom; }
+  #kronk .pose-entrarage{ transform:scale(1.05); transform-origin:center bottom; }
+  #kronk .pose-ragetonormal{ transform:scale(1.21); transform-origin:center bottom; }
+  #kronk .pose-pressao{ transform:scale(1.03); transform-origin:center bottom; }
 
   /* Descoberta ao vivo (v16): quando um vídeo do Kronk demora pra carregar
      (rede lenta, ou muitos vídeos concorrendo no primeiro carregamento da
@@ -562,7 +562,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v19';
+const BUILD_VERSION = 'v20';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
