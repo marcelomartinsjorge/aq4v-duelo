@@ -114,6 +114,24 @@
   #kronk .pose-entrarage{ transform:scale(1.20); transform-origin:center bottom; }
   #kronk .pose-ragetonormal{ transform:scale(1.40); transform-origin:center bottom; }
 
+  /* Descoberta ao vivo (v16): quando um vídeo do Kronk demora pra carregar
+     (rede lenta, ou muitos vídeos concorrendo no primeiro carregamento da
+     página), o jogo troca pra uma imagem estática de fallback (ex.:
+     kronkrage.png) — e essa imagem NÃO tinha nenhum ajuste de tamanho,
+     então enquanto o vídeo real (com a escala calibrada acima) mostra um
+     tamanho, o fallback aparece bem MAIOR (todas as imagens de fallback têm
+     a mesma proporção ~0.667, o que renderiza a ~87% da altura da caixa —
+     bem mais que o vídeo já reduzido do ataque/fúria). Isso explica os
+     relatos contraditórios de tamanho ("ficou gigante" numa hora, "ficou
+     pequeno" logo depois) — provavelmente eram o fallback e o vídeo
+     alternando, não um problema real de escala. Ajustado o fallback de cada
+     pose problemática pra ficar próximo do tamanho do vídeo correspondente.
+  */
+  #kronk .pose-ataque-fallback{ transform:scale(0.70); transform-origin:center bottom; }
+  #kronk .pose-ragedano-fallback{ transform:scale(0.71); transform-origin:center bottom; }
+  #kronk .pose-entrarage-fallback{ transform:scale(0.50); transform-origin:center bottom; }
+  #kronk .pose-ragetonormal-fallback{ transform:scale(0.49); transform-origin:center bottom; }
+
   .lutador.golpeado{animation:tremer .35s ease;}
   @keyframes tremer{
     0%,100%{transform:translateX(0);}
@@ -540,7 +558,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v16';
+const BUILD_VERSION = 'v17';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1549,7 +1567,7 @@ function configurarVideosIdle(){
     loop();
     if(ehLoop){ const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); }
 
-    setTimeout(()=>{ if(!ok && !vid.videoWidth) usarFallback(); }, 2500);
+    setTimeout(()=>{ if(!ok && !vid.videoWidth) usarFallback(); }, 6000);
   });
 }
 configurarVideosIdle();
