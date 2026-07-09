@@ -458,12 +458,20 @@
       <img class="pose-base-fallback" src="kronk.png" alt="Kronk">
       <canvas class="pose-ataque" data-video="kronkataca_anim_norm.webm"></canvas>
       <img class="pose-ataque-fallback" src="kronkataca.png" alt="Kronk atacando">
-      <canvas class="pose-defesa" data-video="kronkrage_idle_norm.webm" data-rage="1"></canvas>
+      <canvas class="pose-pressao" data-video="kronkpressao_normal.webm"></canvas>
+      <img class="pose-pressao-fallback" src="kronkataca.png" alt="Kronk pressionando">
+      <canvas class="pose-defesa" data-video="kronkrage_idle.webm" data-rage="1"></canvas>
       <img class="pose-defesa-fallback" src="kronkrage.png" alt="Kronk enfurecido">
       <canvas class="pose-dano" data-video="kronkbeenhit_anim_norm.webm"></canvas>
       <img class="pose-dano-fallback" src="kronkbeenhit.png" alt="Kronk ferido">
-      <canvas class="pose-desvia" data-video="kronkdesvia_anim_norm.webm"></canvas>
-      <img class="pose-desvia-fallback" src="kronk.png" alt="Kronk desviando">
+      <canvas class="pose-rageataque" data-video="kronkrage_ataque.webm" data-rage="1"></canvas>
+      <img class="pose-rageataque-fallback" src="kronkrage.png" alt="Kronk enfurecido atacando">
+      <canvas class="pose-ragedano" data-video="kronkrage_beenhit.webm" data-rage="1"></canvas>
+      <img class="pose-ragedano-fallback" src="kronkrage.png" alt="Kronk enfurecido ferido">
+      <canvas class="pose-entrarage" data-video="kronkrage_entrando.webm" data-rage="1"></canvas>
+      <img class="pose-entrarage-fallback" src="kronkrage.png" alt="Kronk entrando em fúria">
+      <canvas class="pose-ragetonormal" data-video="kronkrage_saindo.webm"></canvas>
+      <img class="pose-ragetonormal-fallback" src="kronk.png" alt="Kronk saindo da fúria">
     </div>
     <div class="lutador" id="bryne">
       <canvas class="pose-base ativa" data-video="bryne_idle_norm.webm"></canvas>
@@ -512,7 +520,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v9';
+const BUILD_VERSION = 'v10';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -526,7 +534,7 @@ let S; // estado global
 function novoEstado(){
   return {
     bryne:{hp:65,max:65,atk:3},
-    kronk:{hp:80,max:80,atk:4,defBase:11},
+    kronk:{hp:80,max:80,atk:4,defBase:11,_emRage:false},
     ef:{
       terreno:false,   // Bryne: próximo ataque inimigo com desvantagem + contra-ataque se errar
       leitura:false,   // Bryne: próximo ataque dela com vantagem
@@ -689,7 +697,7 @@ function resolverBryne(id){
           floats('bryne',6,'dano');
           anim('bryne','golpeado'); abalar();
         } else {
-          poseDesvia('kronk');
+          // Kronk não tem mais animação de esquiva — permanece na pose atual
         }
       }, DELAY_IMPACTO);
     }
@@ -751,7 +759,10 @@ function resolverKronk(id){
   if(id==='furia'){
     S.kronk.hp = clamp(S.kronk.hp+10,0,S.kronk.max);
     ef.furia=2; S.furiaCast=true; S.furiaCooldownIA=0;
-    poseDefesa('kronk');
+    // transição pra fúria: toca a animação de transformação uma vez e
+    // assenta na pose de rage-idle (em vez de cortar direto pro rage-idle)
+    S.kronk._emRage = true;
+    poseTemporariaCustom('kronk','entrarage', 6875, ()=>'defesa');
     som('cura');
     tocar('kronkragescream1.mp3', VOL_VOZ);
     log('Kronk se ENFURECE. <span class="acerto">+10 vida</span>, mais força — mas fica exposto.');
@@ -762,7 +773,7 @@ function resolverKronk(id){
   }
   if(id==='peso'){
     ef.peso=true;
-    poseDefesa('kronk');
+    poseAtaque('kronk','peso'); // mesma animação de pressão do Garrar
     som('buff');
     log('Kronk avança como pedra. Se Bryne atacar e errar, <span class="ruim">paga caro</span>.');
     renderEstados();
@@ -770,7 +781,7 @@ function resolverKronk(id){
   }
 
   // ataques: macada, garrar, maca
-  poseAtaque('kronk');
+  poseAtaque('kronk', id);
   anim('kronk','atacando');
   const bonusFuria = ef.furia>0 ? 2 : 0;
   let nome, alvoDIF, dadoBase;
@@ -1029,10 +1040,27 @@ function setPose(quem, pose){
 }
 
 // retorna a pose "de repouso" do personagem (defesa se algum buff ativo, senão base)
+// kronk: só a fúria muda a pose de repouso (pra rage-idle); "peso" é só uma
+// postura de ataque temporária (pose-pressao), não muda o idle
 function poseRepouso(quem){
   const emDefesa = (quem==='bryne' && (S.ef.terreno||S.ef.leitura||S.ef.parede))
-                || (quem==='kronk' && (S.ef.furia>0||S.ef.peso));
+                || (quem==='kronk' && S.ef.furia>0);
   return emDefesa ? 'defesa' : 'base';
+}
+
+// pose de retorno do Kronk após ataque/dano: se ele SAIU da fúria durante a
+// ação atual (furia decrementou a 0 no meio do turno), toca a transição
+// "ragetonormal" antes de assentar no idle normal, em vez de cortar direto
+// pra base. Retorna null pra sinalizar que a troca de pose já foi disparada
+// por conta própria (finalizar() não deve chamar setPose de novo por cima).
+function retornoKronk(){
+  if(S.kronk._emRage && S.ef.furia<=0){
+    S.kronk._emRage = false;
+    poseTemporariaCustom('kronk','ragetonormal', 6875, ()=>'base');
+    return null;
+  }
+  if(S.ef.furia>0) S.kronk._emRage = true;
+  return poseRepouso('kronk');
 }
 
 // limpa qualquer temporizador/listener pendente de uma troca de pose anterior
@@ -1056,7 +1084,10 @@ function poseTemporariaCustom(quem, pose, dur, computeReturnPose){
 
   const finalizar = () => {
     limparTrocaPendente(quem);
-    setPose(quem, computeReturnPose());
+    // se computeReturnPose() já disparou a própria troca de pose (ex.: uma
+    // transição), ele retorna null/false e não sobrescrevemos por cima
+    const proxima = computeReturnPose();
+    if(proxima) setPose(quem, proxima);
   };
 
   if(cv && cv._vid && cv.dataset.falhou!=='1'){
@@ -1086,9 +1117,20 @@ function poseTemporaria(quem, pose, dur){
   poseTemporariaCustom(quem, pose, dur, ()=>poseRepouso(quem));
 }
 
-function poseAtaque(quem){
+// tipoOuId: usado só pelo Kronk, pra escolher a animação certa —
+// 'garrar'/'peso' usam a pose de pressão (mesma animação pros dois);
+// qualquer outra coisa usa a animação de ataque genérica. Em fúria, TODO
+// ataque (incluindo garrar/peso) usa a animação única de ataque em fúria.
+function poseAtaque(quem, tipoOuId){
   if(quem==='kronk'){
-    poseTemporariaCustom('kronk','ataque',3400, ()=>poseRepouso('kronk'));
+    const emRage = S.ef.furia>0;
+    S.kronk._emRage = emRage;
+    const usaPressao = (tipoOuId==='garrar' || tipoOuId==='peso');
+    let pose, dur;
+    if(emRage){ pose='rageataque'; dur=4000; }             // 96 frames/24fps
+    else if(usaPressao){ pose='pressao'; dur=4542; }       // 109 frames/24fps
+    else { pose='ataque'; dur=5708; }                      // 137 frames/24fps
+    poseTemporariaCustom('kronk', pose, dur, retornoKronk);
     return;
   }
   // Bryne: ataque muda conforme ela já estar ou não em postura defensiva
@@ -1111,12 +1153,10 @@ function poseDano(quem){
     poseTemporariaCustom('bryne', pose, emDefesa?7000:4000, ()=>poseRepouso('bryne'));
     return;
   }
-  poseTemporariaCustom('kronk','dano',2200, ()=>poseRepouso('kronk'));
-}
-
-// desvio: usado só pelo Kronk agora (Bryne não tem mais animação própria de esquiva)
-function poseDesvia(quem){
-  poseTemporariaCustom(quem,'desvia',2200, ()=>poseRepouso(quem));
+  const emRage = S.ef.furia>0;
+  S.kronk._emRage = emRage;
+  const pose = emRage ? 'ragedano' : 'dano';
+  poseTemporariaCustom('kronk', pose, 4000, retornoKronk); // ambos 96 frames/24fps=4000ms
 }
 
 function poseDefesa(quem){
