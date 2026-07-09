@@ -94,25 +94,29 @@
     z-index:3;
   }
 
-  /* Correção de tamanho aparente do Kronk por pose (v16).
-     A v14 tinha tentado isso calculando o fator "matematicamente correto"
-     pra igualar o tamanho do idle, sem poder testar num navegador de
-     verdade — resultado: ficou GIGANTE (o cálculo não bateu com o
-     comportamento real de object-fit:contain + transform:scale). A v15
-     reverteu tudo. Essa v16 foi validada DE VERDADE, testando ao vivo via
-     Claude in Chrome (setPose('kronk','X') no console + screenshot real,
-     ajustando cada valor até ficar proporcional ao idle, sem exagero). Os
-     valores finais são bem mais conservadores que os da v14 — grosso modo
-     metade do "excesso" que a conta original sugeria. Ver
-     RESUMO_PROJETO_JOGO.md, "CORREÇÃO v16".
+  /* Correção de tamanho aparente do Kronk por pose (v18).
+     Histórico: a v14 calculou o fator "matematicamente correto" sem poder
+     testar num navegador de verdade — resultado: ficou GIGANTE. A v15
+     reverteu tudo. A v16 tentou validar "ao vivo" via Claude in Chrome, mas
+     descobrimos na v18 que o navegador automatizado NUNCA conseguiu
+     decodificar os vídeos webm (trava em readyState=0) — ou seja, a v16 na
+     verdade calibrou contra a IMAGEM ESTÁTICA DE FALLBACK, não o vídeo real.
+     Isso explica por que "ataque" continuava menor e "entrando em fúria"
+     continuava mto pequeno mesmo depois da v16.
+     A v18 mede de verdade: pega um frame real de cada vídeo (ffmpeg),
+     aplica o MESMO algoritmo de chroma key em Python pra saber quanto do
+     quadro é personagem, cruza com a matemática de object-fit:contain pra
+     achar o scale que iguala a altura aparente ao idle, e confere o
+     resultado renderizando a mesma composição (contain+transform) fora do
+     navegador. Ver RESUMO_PROJETO_JOGO.md, "CORREÇÃO v18".
   */
-  #kronk .pose-ataque{ transform:scale(1.30); transform-origin:center bottom; }
-  #kronk .pose-dano{ transform:scale(0.84); transform-origin:center bottom; }
-  #kronk .pose-rageataque{ transform:scale(1.04); transform-origin:center bottom; }
-  #kronk .pose-ragedano{ transform:scale(1.15); transform-origin:center bottom; }
-  #kronk .pose-defesa{ transform:scale(1.07); transform-origin:center bottom; }
-  #kronk .pose-entrarage{ transform:scale(1.20); transform-origin:center bottom; }
-  #kronk .pose-ragetonormal{ transform:scale(1.40); transform-origin:center bottom; }
+  #kronk .pose-ataque{ transform:scale(1.62); transform-origin:center bottom; }
+  #kronk .pose-dano{ transform:scale(0.93); transform-origin:center bottom; } /* vídeo recortado de novo (v18) pra não cortar o braço esquerdo */
+  #kronk .pose-rageataque{ transform:scale(1.01); transform-origin:center bottom; }
+  #kronk .pose-ragedano{ transform:scale(1.46); transform-origin:center bottom; }
+  #kronk .pose-defesa{ transform:scale(1.00); transform-origin:center bottom; }
+  #kronk .pose-entrarage{ transform:scale(1.52); transform-origin:center bottom; } /* v18: vídeo reprocessado (mancha cinza removida + recorte mais justo pra caber sem estourar demais a largura) */
+  #kronk .pose-ragetonormal{ transform:scale(1.75); transform-origin:center bottom; } /* v18: vídeo recortado mais justo (era 1280x720 com muita margem lateral) */
 
   /* Descoberta ao vivo (v16): quando um vídeo do Kronk demora pra carregar
      (rede lenta, ou muitos vídeos concorrendo no primeiro carregamento da
@@ -498,7 +502,7 @@
       <img class="pose-ataque-fallback" src="kronkataca.png" alt="Kronk atacando">
       <canvas class="pose-pressao" data-video="kronkpressao_normal.webm"></canvas>
       <img class="pose-pressao-fallback" src="kronkataca.png" alt="Kronk pressionando">
-      <canvas class="pose-defesa" data-video="kronkrage_idle.webm" data-rage="1"></canvas>
+      <canvas class="pose-defesa" data-video="kronkrage_idle_norm.webm" data-rage="1"></canvas>
       <img class="pose-defesa-fallback" src="kronkrage.png" alt="Kronk enfurecido">
       <canvas class="pose-dano" data-video="kronkbeenhit_anim_norm.webm"></canvas>
       <img class="pose-dano-fallback" src="kronkbeenhit.png" alt="Kronk ferido">
@@ -558,7 +562,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v17';
+const BUILD_VERSION = 'v18';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
