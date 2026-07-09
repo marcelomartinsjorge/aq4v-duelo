@@ -5,7 +5,11 @@
 
 ## 🎯 OBJETIVO ATUAL (PRIORIDADE MÁXIMA)
 
-**Status: v18 aplicado. Usuário reportou 5 problemas específicos depois da v17: (1) kronk idle com pequenos pontos transparentes, (2) kronkataca com erros parecidos, (3) kronkbeenhit cortando o lado esquerdo e menor, (4) kronkrage_entrando com pedaços cinzas, (5) kronkrage_idle gigante/cortando pé e maça. Descoberta crítica ANTES de investigar: o navegador automatizado (Claude in Chrome) usado nas sessões anteriores para "validar ao vivo" NUNCA conseguiu decodificar vídeo de verdade — o elemento `<video>` trava permanentemente em `readyState=0` (confirmado: `fetch()` no mesmo arquivo funciona normal, só o pipeline de vídeo do Chrome trava; até `vid.play()` chegou a congelar a aba). Ou seja, todas as "validações ao vivo" da v16 provavelmente mediram a IMAGEM ESTÁTICA DE FALLBACK, não o vídeo real — o que explica por que os problemas de tamanho persistiam mesmo depois de "confirmados" visualmente.**
+**Status ATUAL: v21 aplicado (ver "CORREÇÃO v21" na seção 4) — ajuste fino de escala do ataque/rageataque (1.15) + limpeza de manchas cinza específicas por vídeo em `kronkataca_anim_norm.webm`, `kronkrage_ataque.webm` e `kronkrage_saindo.webm`. Aguardando o usuário testar ao vivo e confirmar. `BUILD_VERSION='v21'`. Pendente: fazer o deploy (robocopy → repo_temp → git add/commit/push) e aguardar feedback.**
+
+---
+
+**Status histórico (v18): v18 aplicado. Usuário reportou 5 problemas específicos depois da v17: (1) kronk idle com pequenos pontos transparentes, (2) kronkataca com erros parecidos, (3) kronkbeenhit cortando o lado esquerdo e menor, (4) kronkrage_entrando com pedaços cinzas, (5) kronkrage_idle gigante/cortando pé e maça. Descoberta crítica ANTES de investigar: o navegador automatizado (Claude in Chrome) usado nas sessões anteriores para "validar ao vivo" NUNCA conseguiu decodificar vídeo de verdade — o elemento `<video>` trava permanentemente em `readyState=0` (confirmado: `fetch()` no mesmo arquivo funciona normal, só o pipeline de vídeo do Chrome trava; até `vid.play()` chegou a congelar a aba). Ou seja, todas as "validações ao vivo" da v16 provavelmente mediram a IMAGEM ESTÁTICA DE FALLBACK, não o vídeo real — o que explica por que os problemas de tamanho persistiam mesmo depois de "confirmados" visualmente.**
 
 **Metodologia v18 (sem depender do navegador quebrado): para cada pose, extraí um frame real do vídeo (ffmpeg), rodei o MESMO algoritmo de chroma key em Python (`chroma_sim.py`) pra medir com precisão quanto do quadro é personagem, cruzei com a matemática de `object-fit:contain` pra achar o scale que iguala a altura aparente ao idle, e simulei a composição final (contain + transform) fora do navegador com PIL pra visualizar e conferir antes de aplicar (`render_pose()` em scripts locais). Descobertas e fixes:**
 
@@ -500,6 +504,45 @@ Usuário testou a v16 e reportou de novo tamanho errado, mas dessa vez CONTRADIT
 `BUILD_VERSION` foi pra `v17`.
 
 **⚠️ Não validado ao vivo ainda** — forçar o fallback de propósito pra testar é mais trabalhoso (precisa simular rede lenta/erro de carregamento), não deu tempo nessa rodada. Se o usuário reportar tamanho errado de novo depois do deploy, o próximo passo é confirmar especificamente SE é o fallback aparecendo (dá pra checar isso ao vivo lendo `document.querySelector('#kronk .ativa').className` no console — se terminar em `-fallback`, confirma a hipótese) antes de mexer em mais nada.
+
+---
+
+### 🔴 CORREÇÃO v18/v19 — vários vídeos do Kronk reprocessados (chroma preto→verde, recortes, manchas cinza)
+
+Usuário reportou 5 problemas novos (idle com pontos transparentes, ataque com erros parecidos, kronkbeenhit cortando o lado esquerdo e ficando menor, kronkrage_entrando com pedaços cinzas, kronkrage_idle desproporcional cortando pé/maça). **Descoberta importante desta rodada:** o navegador automatizado (Claude in Chrome) usado até então pra "validar ao vivo" nunca conseguiu decodificar vídeo de verdade — `<video>` trava permanentemente em `readyState=0` neste ambiente (confirmado: `fetch()` no mesmo arquivo funciona normal, só o pipeline de vídeo do Chrome trava). Ou seja, toda validação "ao vivo" anterior a esta rodada provavelmente mediu a imagem estática de fallback, não o vídeo real. A partir daqui, o método de validação virou: extrair frame real (ffmpeg) → rodar o MESMO algoritmo de chroma key em Python (`chroma_sim.py`) → medir com precisão a silhueta do personagem → simular a composição final (`object-fit:contain` + `transform:scale`) fora do navegador com PIL, e só publicar depois de conferir visualmente essa simulação.
+
+- **kronkrage_idle**: causa raiz era o ARQUIVO, não o CSS — enquadramento sem margem, cortava pé/maça em qualquer escala razoável. Trocado pra um arquivo alternativo já com margem (`kronkrage_idle_norm.webm`, depois substituído de novo por `kronkrageidle_v2.webm` — ver v21).
+- **kronkbeenhit**: recortado de novo a partir do vídeo ORIGINAL enviado pelo usuário (fundo preto, enquadramento completo). Chroma key dedicado pra fundo preto (`black_to_green.py`): combina limiar de luminosidade com "override" de matiz (qualquer pixel com alguma cor, mesmo escuro, fica opaco) pra proteger cabelo escuro de virar buraco.
+- **kronkrage_entrando**: mancha cinza identificada como sombra/matiz quase neutro que não é verde puro (o chroma key ao vivo nunca conseguia remover). Filtro dedicado (`fix_entrando.py`): detecta blobs grandes (≥40px) que são opacos + baixo-matiz (chroma<9) + escuros (luminância<95), zera esses pixels, preservando cabelo fino (que sempre tem alguma tonalidade quente mesmo escuro).
+- Todas as escalas de pose recalculadas pela mesma metodologia rigorosa.
+
+`BUILD_VERSION` foi pra `v18`/`v19`.
+
+---
+
+### 🔴 CORREÇÃO v20 — CRÍTICO: aspect ratio errado da caixa `#kronk` (causa raiz de quase todo "ficou gigante")
+
+Depois da v19, usuário relatou de novo tamanho quebrado em várias poses simultaneamente (entrarage "saiu da tela", rage_idle na versão errada, ataque "gigante") e chegou a dizer que ia cancelar a conta de frustração. Antes de mais uma rodada de tentativa-e-erro, refiz a matemática do zero e achei o bug real:
+
+**O bug:** desde a v14, todo cálculo de escala usava `A = 36/62 = 0.58` como "proporção da caixa `#kronk`" (lendo os números do CSS `width:36%; height:62%` como se fossem uma razão direta). Isso está ERRADO — essas duas porcentagens são relativas a dimensões DIFERENTES do `.cena` (que tem `aspect-ratio:16/9`, não é quadrado). A proporção real em pixels da caixa é `(0.36×16)/(0.62×9) = 1.0323` — quase quadrada, bem diferente de 0.58 (que é bem mais estreita/alta). Usar o valor errado fazia o cálculo achar que sobrava muito menos altura do que realmente sobra, inflando o scale necessário em TODAS as poses — essa é a causa raiz real do padrão "ficou gigante"/"saiu da tela" que se repetiu desde a v14, não cache do navegador (a hipótese investigada antes de achar isso).
+
+**Fix:** recalculado do zero com `A = 1.0323` correto, usando `object-fit:contain` + `object-position:bottom`: se a proporção do vídeo (`Va = largura/altura do frame`) for MAIOR que `A`, o vídeo fica limitado pela largura (`altura renderizada = A/Va` da altura da caixa); se for MENOR ou igual, fica limitado pela altura (100% da altura da caixa). A altura do personagem em tela = essa fração × a fração que o personagem ocupa do frame do vídeo (medida via `chroma_sim.py`, bounding box do canal alpha nos percentis 0.3–99.7). O scale de cada pose é escolhido pra igualar essa altura em tela à do idle (que usa `scale:1`, sem correção, como referência).
+
+`BUILD_VERSION` foi pra `v20`. Essa é a correção mais importante do projeto até agora — qualquer trabalho futuro de escala do Kronk deve reusar esse valor de `A=1.0323` e essa fórmula, não reintroduzir o `A=0.58` antigo.
+
+---
+
+### 🟢 CORREÇÃO v21 — ajuste fino pós-v20 + manchas cinza específicas de cada vídeo (ataque e ataque em fúria)
+
+Usuário confirmou que a v20 "evoluiu bastante", mas reportou 3 problemas residuais: (1) `pose-ataque` ligeiramente menor que o idle ("não é um erro feio... não faça uma transformação exagerada, está quase certo"), (2) mesma observação em `pose-rageataque`, (3) `kronkrage_saindo` (transição fúria→normal) com manchas cinzas, e deu uma instrução explícita importante: **cada vídeo do Kronk precisa de um tratamento de chroma individualizado — não aplicar o mesmo tipo de remoção de cinza pra todos, já que cada um tem seu próprio padrão de artefato.**
+
+- **`kronkrage_saindo`**: mesma mancha cinza de sombra entre braço/tronco do `entrarage`. Reprocessado com o mesmo `fix_entrando.py` (mesma assinatura de artefato: opaco+baixo-matiz+escuro), verificado quadro a quadro, scale mantido em 1.22.
+- **`pose-ataque` (auditoria proativa)**: ao investigar o pedido de "ajuste fino", achei manchas cinza do MESMO tipo em `kronkataca_anim_norm.webm` (137 frames, 1728×1464) mesmo sem o usuário ter reportado especificamente esse vídeo — confirma a suspeita do usuário de que cada vídeo precisa de checagem individual. Rodado `fix_entrando.py` (pior blob: 36.063px → 591px depois da limpeza), verificado visualmente (composite sobre fundo xadrez, comparação antes/depois). Medição rigorosa (mesmo método da v20, `A=1.0323`) apontou scale correto de **1.15** — o valor anterior (1.23, aplicado de forma empírica sem remedição) estava exagerado; revertido pra 1.15, mais alinhado com o pedido do usuário de "não exagerar".
+- **`pose-rageataque`**: mesma auditoria em `kronkrage_ataque.webm` (878×1184, 96 frames) achou manchas cinza AINDA MAIORES (pior blob: 107.690px). Rodar o `fix_entrando.py` padrão aqui **destruiu o cabelo e abriu um buraco no peito** — porque neste vídeo específico o cabelo escuro e a maça em movimento têm exatamente a mesma assinatura (opaco+baixo-matiz+escuro) da sombra real no chão, e formam um blob conectado enorme que passa do limiar de tamanho. Isso é exatamente o tipo de "mesmo fix pra todos dá errado" que o usuário alertou. **Fix específico** (`fix_rageataque.py`): mesma detecção de blob cinza, mas só remove blobs cujo topo (bounding box) comeceABAIXO de 42% da altura do quadro — protegendo qualquer blob que toque a região de cabeça/ombro (cabelo, maça erguida), removendo só sombras genuínas de tronco/pernas/chão. Verificado quadro a quadro (0 blobs "não protegidos" remanescentes). Scale ajustado de 1.07 pra **1.15** (mesmo valor do ataque normal, aplicando a mesma correção modesta relatada pelo usuário — a medição bruta desse vídeo específico ficou pouco confiável porque a maça erguida infla a caixa delimitadora do personagem em alguns quadros, então usei a mesma proporção de ajuste do ataque normal em vez do número cru da fórmula).
+
+`BUILD_VERSION` foi pra `v21`.
+
+**Lição consolidada:** o algoritmo genérico de remoção de mancha cinza (`fix_entrando.py`) funciona bem quando o cabelo/adereços do personagem retêm alguma tonalidade quente mesmo escuro, mas falha quando a cena está mais escura/mais neutra em geral (cabelo e maça ficam com o mesmo "não-matiz" que a sombra real). Sempre visualizar o resultado (composite sobre fundo xadrez) antes de aceitar a limpeza — nunca assumir que o fix de um vídeo se aplica igual a outro.
 
 ---
 

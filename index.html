@@ -109,13 +109,13 @@
      (frame real + chroma key simulado em Python + render fora do
      navegador). Ver RESUMO_PROJETO_JOGO.md, "CORREÇÃO v20".
   */
-  #kronk .pose-ataque{ transform:scale(1.12); transform-origin:center bottom; }
+  #kronk .pose-ataque{ transform:scale(1.15); transform-origin:center bottom; } /* v21: vídeo reprocessado (mancha cinza) + reajuste fino de escala (1.23 era exagero; medição rigorosa apontou 1.15) */
   #kronk .pose-dano{ transform:scale(1.07); transform-origin:center bottom; }
-  #kronk .pose-rageataque{ transform:scale(0.97); transform-origin:center bottom; }
+  #kronk .pose-rageataque{ transform:scale(1.15); transform-origin:center bottom; } /* v21: vídeo reprocessado (mancha cinza, fix específico p/ preservar cabelo/maça escuros) + ajuste fino igual ao ataque normal */
   #kronk .pose-ragedano{ transform:scale(1.04); transform-origin:center bottom; }
   #kronk .pose-defesa{ transform:scale(0.97); transform-origin:center bottom; }
   #kronk .pose-entrarage{ transform:scale(1.05); transform-origin:center bottom; }
-  #kronk .pose-ragetonormal{ transform:scale(1.21); transform-origin:center bottom; }
+  #kronk .pose-ragetonormal{ transform:scale(1.22); transform-origin:center bottom; } /* v21: vídeo reprocessado de novo (mancha cinza entre braço e tronco, mesmo tipo do entrarage) */
   #kronk .pose-pressao{ transform:scale(1.03); transform-origin:center bottom; }
 
   /* Descoberta ao vivo (v16): quando um vídeo do Kronk demora pra carregar
@@ -562,7 +562,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v20';
+const BUILD_VERSION = 'v21';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
