@@ -94,16 +94,25 @@
     z-index:3;
   }
 
-  /* v14 tentou corrigir o tamanho aparente do Kronk por pose com
-     transform:scale() por classe (#kronk .pose-X). Usuário reportou que
-     ficou GIGANTE (principalmente as poses de fúria), pior que o problema
-     original de tamanho pequeno no ataque. Removido na v15 até eu conseguir
-     entender exatamente por que a matemática (que devia ser segura, escalando
-     a partir da base) não bateu com o resultado real no navegador — sem
-     acesso a um browser de verdade pra depurar isso com segurança, é melhor
-     reverter do que arriscar piorar de novo. Ver RESUMO_PROJETO_JOGO.md,
-     "CORREÇÃO v15".
+  /* Correção de tamanho aparente do Kronk por pose (v16).
+     A v14 tinha tentado isso calculando o fator "matematicamente correto"
+     pra igualar o tamanho do idle, sem poder testar num navegador de
+     verdade — resultado: ficou GIGANTE (o cálculo não bateu com o
+     comportamento real de object-fit:contain + transform:scale). A v15
+     reverteu tudo. Essa v16 foi validada DE VERDADE, testando ao vivo via
+     Claude in Chrome (setPose('kronk','X') no console + screenshot real,
+     ajustando cada valor até ficar proporcional ao idle, sem exagero). Os
+     valores finais são bem mais conservadores que os da v14 — grosso modo
+     metade do "excesso" que a conta original sugeria. Ver
+     RESUMO_PROJETO_JOGO.md, "CORREÇÃO v16".
   */
+  #kronk .pose-ataque{ transform:scale(1.30); transform-origin:center bottom; }
+  #kronk .pose-dano{ transform:scale(0.84); transform-origin:center bottom; }
+  #kronk .pose-rageataque{ transform:scale(1.04); transform-origin:center bottom; }
+  #kronk .pose-ragedano{ transform:scale(1.15); transform-origin:center bottom; }
+  #kronk .pose-defesa{ transform:scale(1.07); transform-origin:center bottom; }
+  #kronk .pose-entrarage{ transform:scale(1.20); transform-origin:center bottom; }
+  #kronk .pose-ragetonormal{ transform:scale(1.40); transform-origin:center bottom; }
 
   .lutador.golpeado{animation:tremer .35s ease;}
   @keyframes tremer{
@@ -531,7 +540,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v15';
+const BUILD_VERSION = 'v16';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
