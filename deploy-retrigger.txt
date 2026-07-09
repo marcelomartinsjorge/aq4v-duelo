@@ -1,0 +1,1 @@
+Trivial commit to force a fresh GitHub Actions run after run #82 got stuck queued (GitHub runner allocation error).
