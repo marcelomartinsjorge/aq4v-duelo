@@ -843,12 +843,6 @@ Tecnicamente, isso exigiu atrasar o fluxo de turno em 1000ms extra quando a Lâm
 
 ---
 
-### 🟢 v36 — folga da caixa de HP da Bryne aumentada (estava quase encostando)
-
-O ajuste do v35 (8px de folga até a cabeça real) ficou perto demais na prática. Subi a caixa mais um pouco: `top` de 34% pra **28%**, o que aumenta a folga real de ~8px pra ~29px (medido de novo via DOM). `BUILD_VERSION` foi pra `v36`.
-
----
-
 ### 🟢 v35 — Bryne mais pra dentro da cena, HUD dela bem mais perto do corpo
 
 Usuário mandou print anotado (setas + círculos) mostrando que a caixa de HP/Foco da Bryne ainda estava longe demais dela (lá no topo da tela) e que ela mesma precisava ficar mais pra dentro da imagem (menos colada na borda esquerda).
@@ -864,9 +858,32 @@ Reconferido com medição de DOM real (não só visual) antes de fechar, e rodei
 
 `BUILD_VERSION` foi pra `v35`.
 
+---
+
+### 🟢 v36 — folga da caixa de HP da Bryne aumentada (estava quase encostando)
+
+O ajuste do v35 (8px de folga até a cabeça real) ficou perto demais na prática. Subi a caixa mais um pouco: `top` de 34% pra **28%**, o que aumenta a folga real de ~8px pra ~29px (medido de novo via DOM).
+
+`BUILD_VERSION` foi pra `v36`.
+
+---
+
+### 🟢 v37 — HUD da Bryne mais alto de novo, Foco no contra-ataque de Terreno, cutscene movida pra Fúria
+
+Três fixes:
+
+1. **HUD da Bryne subiu mais** (`top` de 28% pra 23%) — folga real até a cabeça dela foi de ~29px pra **~47px** (13.1% da cena), bem mais confortável.
+
+2. **Foco não contava no contra-ataque de Terreno.** Achado: quando o ataque de Kronk erra e `ef.terreno` está ativo, Bryne contra-ataca causando 5 de dano (`aplicarDanoKronk(5)`), mas esse caminho específico nunca somava Foco pra ela — só o ataque normal/estratégico somava. Corrigido: agora esse contra-ataque também dá os mesmos +25 de Foco (e chama `updateHP()` na hora, pra barra atualizar visualmente sem esperar o próximo evento).
+
+3. **Cutscene de ultimate do Kronk estava no gatilho errado.** Estava conectada ao **Avalanche** (o ataque exclusivo da fúria), mas o nome do arquivo (`kronkinrageULTIMATE` = "Kronk ENTRANDO em fúria") deixa claro que o momento de ultimate dele é a própria transformação — `resolverKronk('furia')`, não o Avalanche. Corrigido: a cutscene agora dispara quando ele entra em Fúria (nome exibido: "Fúria"), e o Avalanche passa a ser só mais um ataque forte dentro do estado de fúria, sem cutscene própria.
+
+**Validação:** testado o contra-ataque de Terreno de verdade (Foco foi de 0 pra 25 corretamente) e a cutscene de Fúria disparando (`escolherKronk` forçado pra `'furia'`, confirmado: cutscene aparece com a arte certa, nome "Fúria", fecha sozinha, e o estado de fúria é aplicado depois). Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v37`.
+
 **Pontos que só dá pra confirmar vendo ao vivo:**
-- A posição nova da Bryne (mais alta) e do HUD do Kronk (embaixo) foram ajustadas por medição de DOM, mas o "quanto" exato foi uma estimativa razoável meu — pode precisar de mais um ajuste fino depois que você ver.
-- Não consegui abrir as imagens anexadas nesta sessão (o visualizador de imagem no meu ambiente continua quebrado) — processei o vídeo/imagens só pelas specs técnicas e pela sua descrição em texto.
+- Não consegui abrir as imagens/prints anexados nesta sessão (o visualizador de imagem no meu ambiente continua quebrado) — processei tudo pela descrição em texto e por medição de DOM real, não por inspeção visual direta.
 
 **Ponto em aberto:** não tenho como ver as imagens que você anexou nesta sessão (ficou quebrado o visualizador de imagem no ambiente) — trabalhei só com a descrição textual da conversa. Se a posição/escala dos personagens no novo cenário precisar de ajuste fino, me diga em números aproximados (ex.: "Kronk devia estar mais pra a esquerda", "os dois mais afastados um do outro") que eu aplico e meço via DOM real, como fiz com o resto.
 
