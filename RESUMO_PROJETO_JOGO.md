@@ -606,6 +606,34 @@ Usuário confirmou os pontos em aberto do v23:
 
 ---
 
+### 🔴 CORREÇÃO v25 — CRÍTICO: descoberto por que o `pose-base` (idle) estourava a tela
+
+Usuário reportou depois do deploy do v24: idle gigante (cabeça não cabe na tela), `pose-ragedano`/`pose-ragepressao` com proporção estranha, `pose-rageataque` parecendo menor, e uma "mancha/retângulo" perto dos pés em algumas poses. Investigação:
+
+**Causa raiz real (importante pra qualquer trabalho futuro de escala):** `.lutador canvas{ width:100%; height:100%; object-fit:contain; }` — ou seja, a caixa do elemento `<canvas>` (a que o `getBoundingClientRect()` mede, e a que o CSS `transform:scale()` de fato escala) é **sempre** 100% da caixa `#kronk`, INDEPENDENTE da proporção do vídeo. `object-fit:contain` só controla onde o CONTEÚDO aparece *dentro* dessa caixa fixa (deixando um espaço vazio/transparente de sobra se o vídeo não preencher tudo) — não encolhe a caixa em si. Isso significa que a fórmula `A=1.0323`/`rhf`/`char_h_frac` usada desde a v20 estava certa para MEDIR a altura do personagem em tela, mas usar só `transform:scale()` pra corrigir vídeos com MUITO espaço vazio ao redor do personagem (como os vídeos novos do v24, com bastante "ar" ao redor do Kronk) faz o `scale` precisar ser grande — e como o `scale` amplia a caixa INTEIRA (personagem + espaço vazio), o espaço vazio virou um estouro gigante pra fora da tela junto com o personagem (a cabeça saía por cima porque a caixa toda, não só o personagem, ficou maior que a `.cena` visível).
+
+**Fix real:** ao invés de tentar compensar com `scale`, **recortei os vídeos-fonte rente ao personagem** (ffmpeg `crop`, medindo a bounding box real do personagem ao longo de TODA a animação + margem de segurança), eliminando o espaço vazio antes de calcular a escala. Depois do corte, `char_h_frac` sobe muito (personagem ocupa quase todo o frame) e a escala necessária cai pra perto de 1 — sem estourar a caixa.
+
+| Pose | Corte aplicado | char_h_frac antes → depois | Scale antes (v24, quebrado) → depois (v25) |
+|---|---|---|---|
+| `pose-base` | `crop=390:554:418:80` | 0.6653 → 0.8646 | 2.43 → **1.09** |
+| `pose-ragedano` | `crop=568:492:333:228` | 0.6125 → 0.8984 | 2.64 → **1.17** |
+| `pose-ragepressao` | `crop=584:596:286:124` | 0.7472 → 0.9027 | 2.17 → **1.04** |
+
+**Mancha/retângulo perto dos pés (kronkbeenhit, `pose-dano`):** era uma vinheta de iluminação de estúdio nos dois cantos inferiores do vídeo-fonte (fundo mais escuro que o resto do green-screen, confirmado por baixíssima variância de cor — não é o personagem, ele nunca ocupa essa região). O algoritmo ao vivo classificava isso como "ambíguo" (score entre 15-55), deixando uma mancha semi-opaca em vez de transparente total. Fix: repintados os dois cantos inferiores como verde puro e saturado antes de encodar (`fix_corners.py`), sem precisar recortar (o personagem não perde nada).
+
+**`pose-rageataque` "menor":** não achei nenhum problema de corte/escala nesse vídeo especificamente (framing já era justo, `char_h_frac=0.9208`, sem espaço vazio de sobra) — a suspeita mais forte é que era só uma comparação injusta contra o `pose-base` quebrado (que estava gigante). Como agora todas as poses miram a MESMA altura em tela (`target=0.9405`), depois desse fix `rageataque` deve parecer consistente com as demais. Se ainda estiver errado depois do deploy, precisa de mais uma rodada com prints novos.
+
+**`pose-entrarage`/`pose-ragetonormal`:** continuam com o vídeo antigo (com os buracos/manchas cinza documentados desde v10-v11), sem mudança — aguardando o usuário regerar `kronkentersrage.mp4` sem o fade-to-black.
+
+**Validação:** medição via `getBoundingClientRect()` real (Playwright) do canvas de cada pose contra a caixa `#kronk` e contra `.cena` (que tem `overflow:hidden`) — confirmado que o personagem em si (não só a caixa do canvas) fica bem dentro da área visível em todas as poses testadas após o fix.
+
+`BUILD_VERSION` foi pra `v25`.
+
+**Lição consolidada pra qualquer pose futura:** antes de calcular `scale`, sempre medir se o vídeo-fonte tem espaço vazio excessivo ao redor do personagem (`char_h_frac` bem abaixo de ~0.85-0.90). Se tiver, o fix certo é RECORTAR o vídeo rente ao personagem primeiro — nunca tentar compensar só com `transform:scale()`, porque isso amplia o espaço vazio junto e pode estourar a tela.
+
+---
+
 ## 5. BUG DO CONGELAMENTO (RESOLVIDO, mas frágil)
 
 Vídeos WebM neste projeto às vezes chegam em `currentTime === duration` mas o evento `ended` **não dispara** (bug de navegador/codec). Isso causava congelamento no fim de animações longas (contra-ataque, 8s).
