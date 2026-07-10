@@ -53,7 +53,7 @@
     position:relative;
     width:100%;
     aspect-ratio:16/9;
-    background-image:url('bocaseca.png');
+    background-image:url('bocaseca_v2.png');
     background-size:cover;
     background-position:center;
     overflow:hidden;
@@ -121,11 +121,19 @@
     position:absolute;
     z-index:6;
     pointer-events:none;
+    opacity:0;
+    transition:opacity .05s ease;
   }
-  /* Torso do Kronk: caixa dele é top:6% right:4% width:36% height:62% */
-  #sangue-corpo-kronk{ top:30%; right:16%; width:14%; height:14%; }
-  /* Torso da Bryne: caixa dela é bottom:-2% left:2% width:30% height:95%, personagem em primeiro plano */
-  #sangue-corpo-bryne{ top:38%; left:13%; width:12%; height:12%; }
+  .sangue-corpo.ativa{ opacity:1; }
+  .sangue-corpo canvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:contain;
+  }
+  /* Posição medida via DOM real na pose de dano de cada personagem (não estimada):
+     Kronk torso ~ x:77% y:30% da cena; Bryne torso ~ x:12% y:73% da cena. */
+  #sangue-corpo-kronk{ top:22%; left:69%; width:16%; height:16%; }
+  #sangue-corpo-bryne{ top:65%; left:5%; width:15%; height:15%; }
 
   /* Correção de tamanho aparente do Kronk por pose (v20).
      BUG CRÍTICO encontrado e corrigido na v20: da v14 até a v19, todo o
@@ -221,37 +229,36 @@
     background:linear-gradient(165deg, rgba(28,21,15,.96), rgba(9,6,4,.98));
     border:1px solid #4a3a24;
     border-radius:2px;
-    padding:7px 10px 8px;
-    min-width:138px;
+    padding:3px 7px 4px;
+    min-width:112px;
     box-shadow:0 4px 14px rgba(0,0,0,.65), inset 0 0 0 1px rgba(201,162,39,.28), inset 0 0 16px rgba(0,0,0,.55);
   }
   .hpbox::before,.hpbox::after{
     content:'';
     position:absolute;
-    width:8px;height:8px;
+    width:7px;height:7px;
     border:1px solid var(--dourado);
     opacity:.55;
     pointer-events:none;
   }
   .hpbox::before{top:-1px;left:-1px;border-right:none;border-bottom:none;}
   .hpbox::after{bottom:-1px;right:-1px;border-left:none;border-top:none;}
-  /* Posicionadas perto de cada personagem (Kronk: top:6% right:4%; Bryne: cabeça por volta de top:3% left:2%) */
-  #hp-kronk{top:1.5%;right:5%;}
-  #hp-bryne{top:1.5%;left:4%;}
+  #hp-kronk{top:0.2%;right:5%;}
+  #hp-bryne{top:0.2%;left:4%;}
   .hpbox .nome{
     font-family:'Cinzel',serif;
     font-weight:700;
-    font-size:12.5px;
-    letter-spacing:1.3px;
+    font-size:10.5px;
+    letter-spacing:.9px;
     color:var(--dourado-claro);
     text-transform:uppercase;
     display:flex;justify-content:space-between;align-items:baseline;
-    margin-bottom:5px;
+    margin-bottom:2px;
     text-shadow:0 1px 2px rgba(0,0,0,.8);
   }
-  .hpbox .faixa{font-size:8.5px;letter-spacing:.5px;color:#8a7a55;font-family:'Cinzel',serif;font-weight:400;}
+  .hpbox .faixa{font-size:7px;letter-spacing:.4px;color:#8a7a55;font-family:'Cinzel',serif;font-weight:400;}
   .hp-trilho{
-    height:10px;
+    height:7px;
     background:#000;
     border:1px solid #4a3f2a;
     border-radius:1px;
@@ -268,32 +275,19 @@
   .hp-num{
     text-align:right;
     font-family:'Cinzel',serif;
-    font-size:10px;
+    font-size:8.5px;
     color:var(--osso);
-    margin-top:2px;
-    letter-spacing:1px;
+    margin-top:1px;
+    letter-spacing:.5px;
   }
-  /* Recursos secundários: Raiva (Kronk) e Foco (Bryne) */
+  /* Recursos secundários: Raiva (Kronk) e Foco (Bryne) -- barra bem fina, sem label
+     de texto (o nome/descrição vive no title nativo do navegador ao passar o mouse),
+     só pra não engordar a caixa mais do que o necessário. */
   .rec-linha{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    margin-top:6px;
+    margin-top:2px;
   }
-  .rec-label{
-    font-family:'Cinzel',serif;
-    font-size:7.5px;
-    letter-spacing:.6px;
-    text-transform:uppercase;
-    width:30px;
-    flex-shrink:0;
-    text-shadow:0 1px 1px rgba(0,0,0,.8);
-  }
-  .raiva-label{color:var(--raiva-claro);}
-  .foco-label{color:var(--foco-claro);}
   .rec-trilho{
-    flex:1;
-    height:6px;
+    height:3.5px;
     background:#000;
     border:1px solid #3a2f1f;
     border-radius:1px;
@@ -316,8 +310,8 @@
     flex-wrap:wrap;
     max-width:44%;
   }
-  #est-kronk{top:calc(1.5% + 78px);right:5%;justify-content:flex-end;}
-  #est-bryne{top:calc(1.5% + 78px);left:4%;}
+  #est-kronk{top:calc(0.2% + 46px);right:5%;justify-content:flex-end;}
+  #est-bryne{top:calc(0.2% + 46px);left:4%;}
   .pilula{
     position:relative;
     font-family:'Cinzel',serif;
@@ -620,8 +614,7 @@
       <div class="nome"><span>Kronk</span><span class="faixa">veterano</span></div>
       <div class="hp-trilho"><div class="hp-preenche" id="bar-kronk"></div></div>
       <div class="hp-num" id="num-kronk">80 / 80</div>
-      <div class="rec-linha">
-        <span class="rec-label raiva-label">Raiva</span>
+      <div class="rec-linha" title="Raiva: sobe quando Kronk leva dano, desce quando ele não pressiona Bryne. Cheia libera a Fúria.">
         <div class="rec-trilho" id="trilho-raiva"><div class="rec-preenche raiva-preenche" id="bar-raiva"></div></div>
       </div>
     </div>
@@ -630,8 +623,7 @@
       <div class="nome"><span>Bryne</span><span class="faixa">lendária</span></div>
       <div class="hp-trilho"><div class="hp-preenche" id="bar-bryne"></div></div>
       <div class="hp-num" id="num-bryne">65 / 65</div>
-      <div class="rec-linha">
-        <span class="rec-label foco-label">Foco</span>
+      <div class="rec-linha" title="Foco: sobe quando Bryne acerta Kronk, desce quando ela leva dano. Cheio libera A Lâmina.">
         <div class="rec-trilho" id="trilho-foco"><div class="rec-preenche foco-preenche" id="bar-foco"></div></div>
       </div>
     </div>
@@ -642,8 +634,12 @@
     <div class="sangue-critico" id="sangue-critico">
       <canvas data-video="bloodcritico.webm"></canvas>
     </div>
-    <canvas class="sangue-corpo" id="sangue-corpo-kronk"></canvas>
-    <canvas class="sangue-corpo" id="sangue-corpo-bryne"></canvas>
+    <div class="sangue-corpo" id="sangue-corpo-kronk">
+      <canvas data-video="bloodnormal.webm"></canvas>
+    </div>
+    <div class="sangue-corpo" id="sangue-corpo-bryne">
+      <canvas data-video="bloodnormal.webm"></canvas>
+    </div>
 
     <div class="lutador" id="kronk">
       <canvas class="pose-base ativa" data-video="kronkidle_v29.webm"></canvas>
@@ -714,7 +710,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v32';
+const BUILD_VERSION = 'v33';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1866,8 +1862,8 @@ configurarVideosIdle();
    ended+sondagem do poseTemporariaCustom, pro mesmo bug de 'ended' não
    disparar em alguns navegadores/codecs webm). */
 function configurarEfeitosSangue(){
-  document.querySelectorAll('.sangue-critico canvas[data-video]').forEach(canvas=>{
-    const camada = canvas.closest('.sangue-critico');
+  document.querySelectorAll('.sangue-critico canvas[data-video], .sangue-corpo canvas[data-video]').forEach(canvas=>{
+    const camada = canvas.closest('.sangue-critico, .sangue-corpo');
     const ctx = canvas.getContext('2d', {willReadFrequently:true});
     const vid = document.createElement('video');
     vid.src = cb(canvas.dataset.video);
@@ -1983,98 +1979,8 @@ function dispararSangue(id){
   sangueTimers[id] = {t:setTimeout(finalizar, 6000), i:intervalId, onEnded};
 }
 function dispararSangueCritico(){ dispararSangue('sangue-critico'); }
-
-/* --- Sangue "saindo do corpo" (v32): diferente do crítico (vídeo cheio,
-   dá impressão de sangue voando pra tela), esse é um sistema de
-   partículas desenhado no canvas -- um jorro curto que nasce no torso e
-   cai com gravidade, sem nenhuma sensação de vir na direção da câmera.
-   Mantém as camadas simples (sem vídeo, sem chroma key) porque o efeito
-   é geométrico, não filmado. */
-function explodirSangueCorpo(id){
-  const canvas = document.getElementById(id);
-  if(!canvas) return;
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio||1;
-  if(canvas.width !== Math.round(rect.width*dpr) || canvas.height !== Math.round(rect.height*dpr)){
-    canvas.width = Math.round(rect.width*dpr);
-    canvas.height = Math.round(rect.height*dpr);
-  }
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  const cx = W*0.5, cy = H*0.35;
-
-  const tonsSangue = ['#5e0a08','#7a0f0c','#8b0000','#4a0705','#6b0d0a'];
-  const particulas = [];
-  const nGotas = 14 + Math.floor(Math.random()*6);
-  for(let i=0;i<nGotas;i++){
-    const ang = (-Math.PI/2) + (Math.random()-0.5)*Math.PI*1.15; // leque pra cima/lados, nunca pra "fora da tela"
-    const vel = (0.35+Math.random()*0.75)*W;
-    particulas.push({
-      x:cx, y:cy,
-      vx:Math.cos(ang)*vel*0.5,
-      vy:Math.sin(ang)*vel*0.5 - H*0.25,
-      r: (0.018+Math.random()*0.045)*W,
-      cor: tonsSangue[(Math.random()*tonsSangue.length)|0],
-      vida: 1
-    });
-  }
-  // respingo/mancha que nasce imediatamente e esmaece devagar (sugere ferimento, não vôo)
-  const manchas = [];
-  const nManchas = 4 + Math.floor(Math.random()*3);
-  for(let i=0;i<nManchas;i++){
-    manchas.push({
-      x: cx + (Math.random()-0.5)*W*0.5,
-      y: cy + (Math.random()-0.5)*H*0.3,
-      r: (0.05+Math.random()*0.09)*W,
-      cor: tonsSangue[(Math.random()*tonsSangue.length)|0],
-      vida: 1
-    });
-  }
-
-  const g = H*3.2; // gravidade (px/s^2, escala pelo tamanho do canvas)
-  let ultimo = performance.now();
-  const anterior = canvas._raf;
-  if(anterior) cancelAnimationFrame(anterior);
-
-  function passo(agora){
-    const dt = Math.min(0.04,(agora-ultimo)/1000);
-    ultimo = agora;
-    ctx.clearRect(0,0,W,H);
-
-    let algumaViva = false;
-    for(const m of manchas){
-      m.vida -= dt*0.55;
-      if(m.vida>0){
-        algumaViva = true;
-        ctx.globalAlpha = Math.max(0,m.vida)*0.75;
-        ctx.fillStyle = m.cor;
-        ctx.beginPath(); ctx.ellipse(m.x,m.y,m.r,m.r*0.8,0,0,Math.PI*2); ctx.fill();
-      }
-    }
-    for(const p of particulas){
-      p.vy += g*dt;
-      p.x += p.vx*dt;
-      p.y += p.vy*dt;
-      p.vida -= dt*1.15;
-      if(p.vida>0){
-        algumaViva = true;
-        ctx.globalAlpha = Math.max(0,p.vida);
-        ctx.fillStyle = p.cor;
-        ctx.beginPath(); ctx.ellipse(p.x,p.y,p.r,p.r*1.3,Math.atan2(p.vy,p.vx),0,Math.PI*2); ctx.fill();
-      }
-    }
-    ctx.globalAlpha = 1;
-    if(algumaViva){
-      canvas._raf = requestAnimationFrame(passo);
-    } else {
-      ctx.clearRect(0,0,W,H);
-      canvas._raf = null;
-    }
-  }
-  canvas._raf = requestAnimationFrame(passo);
-}
-function dispararSangueKronk(){ explodirSangueCorpo('sangue-corpo-kronk'); }
-function dispararSangueBryne(){ explodirSangueCorpo('sangue-corpo-bryne'); }
+function dispararSangueKronk(){ dispararSangue('sangue-corpo-kronk'); }
+function dispararSangueBryne(){ dispararSangue('sangue-corpo-bryne'); }
 
 // retoma o play dos vídeos em loop no primeiro clique (autoplay bloqueado)
 document.addEventListener('click', ()=>{

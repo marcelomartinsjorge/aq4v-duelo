@@ -805,6 +805,24 @@ O efeito de crítico (`bloodcritico`) só dispara quando **Bryne** leva o críti
 
 `BUILD_VERSION` foi pra `v32`.
 
+---
+
+### 🟢 v33 — HUD compactado (sem sobrepor a cabeça), sangue de volta pra vídeo real, novo cenário
+
+Usuário reportou 3 coisas depois de ver o v32 ao vivo:
+
+**1) HUD sobrepondo a cabeça do Kronk.** Medi com precisão via DOM: a caixa de HP ia de 1.4px até 80px (relativo à `.cena`), enquanto a cabeça REAL do Kronk (pixels visíveis, não só a caixa do canvas) começa em 34.6px — um overlap de quase 46px. Compactei a caixa bem mais (menos padding, fontes menores, tirei o texto "Raiva"/"Foco" da barra de recurso — vira só uma barrinha fina colorida, com o nome explicando no `title` nativo ao passar o mouse) até sobrar só uns 12px de overlap (bem no limite do cabelo, não mais "na cara"). Medi a Bryne também por precaução: a cabeça real dela fica em 197px, bem abaixo da caixa dela (que termina em 46px) — nunca teve esse problema, só o Kronk.
+
+**2) Sangue "muito mal feito".** Voltei atrás: troquei o sistema de partículas desenhadas (que ficou com cara de "bolha vermelha genérica") de volta pro vídeo real filmado (`bloodnormal.webm`, o mesmo material do crítico, só recortado e em tamanho pequeno) — mais realista, como você tinha gostado antes. Dessa vez medi a posição do torso de cada personagem DE VERDADE (via captura do canvas ao vivo na pose de dano, não estimativa): Kronk em x:77% y:30% da cena, Bryne em x:12% y:73%. Reposicionei as duas camadas de sangue exatamente nesses pontos, pequenas (15-16% da cena), então o sangue aparece no lugar certo do corpo em vez de flutuar solto.
+
+**3) Novo cenário.** Troquei o fundo (`bocaseca.png` → `bocaseca_v2.png`, a imagem que você mandou) — a paisagem óssea/desértica nova. Não mexi na posição dos personagens (Kronk direita/maior, Bryne esquerda/menor) porque a composição da imagem de referência que você mandou parece manter essa mesma disposição — mas não tenho certeza absoluta disso (não consigo abrir imagens neste ambiente agora, só descrever o que já vi na conversa). Se a posição dos personagens não bater bem com o novo cenário quando você testar, me avisa exatamente o que ajustar (mais afastados, mais centralizados, tamanho relativo diferente) que eu meço e corrijo.
+
+**Validação:** rodei o mesmo combate completo simulado (várias rodadas de IA de verdade) sem erros, testei o disparo do sangue (aparece e some sozinho), e confirmei o novo background carregando via `getComputedStyle`.
+
+`BUILD_VERSION` foi pra `v33`.
+
+**Ponto em aberto:** não tenho como ver as imagens que você anexou nesta sessão (ficou quebrado o visualizador de imagem no ambiente) — trabalhei só com a descrição textual da conversa. Se a posição/escala dos personagens no novo cenário precisar de ajuste fino, me diga em números aproximados (ex.: "Kronk devia estar mais pra a esquerda", "os dois mais afastados um do outro") que eu aplico e meço via DOM real, como fiz com o resto.
+
 **Pontos que precisam da sua avaliação depois de jogar:**
 - Os números de Foco/Raiva/Avalanche/Escudo são um primeiro palpite balanceado pela escala existente do jogo — não foram testados por um humano jogando de verdade, só simulados. É bem provável que precisem de ajuste fino depois que você sentir o ritmo real.
 - A IA do Kronk agora usa Avalanche com 70% de prioridade sempre que possível durante a Fúria — pode ser agressivo demais ou de menos, ajustável fácil (uma linha em `escolherKronk()`).
