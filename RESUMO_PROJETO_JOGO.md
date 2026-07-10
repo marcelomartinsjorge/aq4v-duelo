@@ -781,6 +781,35 @@ O efeito de crítico (`bloodcritico`) só dispara quando **Bryne** leva o críti
 
 `BUILD_VERSION` foi pra `v31`.
 
+---
+
+### 🆕 v32 — Sangue "saindo do corpo" (procedural), HUD redesenhado, e 5 mecânicas novas de combate
+
+**1) Sangue redesenhado.** Usuário apontou que o sangue local (baseado no mesmo vídeo do crítico, só menor) ainda passava a sensação de "vir na direção da câmera" e estava mal posicionado (muito alto em Bryne). Substituí por um sistema de **partículas procedurais** (canvas, não vídeo) — um jorro curto de gotas escuras que nasce no torso, se espalha com um leque voltado pra cima/lados (nunca "pra fora da tela") e cai com gravidade, junto de uma mancha que nasce e esmaece. Isso é desenhado, não filmado, então dá pra controlar a direção com precisão (nunca dá impressão de vir pra câmera). `bloodcritico.webm` (o vídeo, tela cheia) continua exclusivo pro crítico de Bryne, como pedido. Reposicionado mais perto do torso real de cada personagem.
+
+**2) HUD reposicionado e redesenhado.** As caixas de vida estavam trocadas de lado (a de Bryne ficava à direita dela, a do Kronk ficava perto de Bryne) — confirmado que causava a confusão relatada. Reposicionadas: cada caixa agora fica bem perto da cabeça do respectivo personagem (Kronk à direita, Bryne à esquerda, ambas no topo da cena). Visual com molduras com cantos ornamentados (pequenos ganchos dourados nos cantos), gradientes mais ricos, e cores novas pros dois recursos (Raiva: laranja-fogo; Foco: azul-gelo) pra reforçar o tema dark fantasy sem fugir da paleta que já existia (sangue/dourado/osso).
+
+**3) Cinco mecânicas novas de combate implementadas e testadas.** Rodei um combate completo simulado (vários turnos reais, IA de verdade) do início ao fim sem erros pra validar tudo integrado:
+
+- **Foco (Bryne):** 0–100. +25 por ataque que acerta Kronk, -15 quando ela leva dano. A Lâmina passa a exigir Foco cheio (em vez da recarga fixa de 2 turnos) e consome tudo ao usar (acerte ou erre).
+- **Raiva (Kronk):** 0–100. +18 quando ele leva dano, -10 no turno em que ele não consegue acertar Bryne (pressão). Ao encher, a Fúria fica disponível pra IA escolher (troquei o antigo cooldown fixo de 3 turnos por esse gate) — dura 3 turnos (era 2) e reseta a Raiva a 0 ao ativar.
+- **Avalanche (exclusivo da Fúria):** dano 15–19 (+2 de fúria = 17–21), DIF 15 pra acertar (mais alto que os outros golpes, representando um golpe mais telegráfico), só 1x por ativação de Fúria. Na IA, prioridade alta (70% de chance) sempre que a Fúria está ativa e ainda não foi usada.
+- **Parede de Escudos (Bryne):** virou postura de verdade. Ativa cria um escudo com 22 de vida própria; enquanto ativa, todo dano vai pro escudo, não pra Bryne. Atacar ou usar qualquer outra habilidade abandona a postura na hora. Se o escudo quebrar, Bryne fica atordoada (reusa o mesmo efeito de atordoamento que já existia pro golpe crítico "Maça para Cima" do Kronk).
+- **Ataque Estratégico (Bryne):** nova habilidade que abre um submenu (Braço / Torso / Perna) sem custar o turno até escolher de fato. Torso: dano 5–8, sem efeito (a opção seez seguro). Braço: dano 3–5 + Kronk causa -2 de dano por 2 turnos. Perna: dano 3–5 + Kronk fica com -3 pra acertar por 2 turnos.
+
+**Números escolhidos** (ponto de partida pra playtesting, fácil de ajustar depois): calibrei tudo em torno da escala de dano já existente no jogo (a maioria dos golpes causa 4-11, HP de Kronk=80/Bryne=65), pra Avalanche realmente parecer "o momento mais perigoso da luta" sem ser instantaneamente letal, e pro Foco/Raiva encherem em ritmos parecidos (~4-6 turnos de jogo ativo) pra não travar o ritmo do combate.
+
+**4) Tooltips nos status.** Passar o mouse em qualquer pílula de status (Sangra, Presa, Fúria, Escudo, Peso, etc.) agora mostra uma descrição completa do efeito, no mesmo estilo visual do tooltip que já existia nos botões de habilidade.
+
+**Validação:** simulei um combate completo real (turno a turno, IA de verdade escolhendo ações) até o fim do jogo, sem nenhum erro de JS — confirmado Fúria ativando, Avalanche causando dano alto (~32 num crítico), Raiva subindo/descendo corretamente, Foco acumulando e resetando na Lâmina, escudo absorvendo dano e quebrando com atordoamento. Testado também hover de tooltip e posições do HUD via medição real do DOM (confirmado: caixa do Kronk agora à direita perto dele, caixa da Bryne à esquerda perto dela, ambas no topo).
+
+`BUILD_VERSION` foi pra `v32`.
+
+**Pontos que precisam da sua avaliação depois de jogar:**
+- Os números de Foco/Raiva/Avalanche/Escudo são um primeiro palpite balanceado pela escala existente do jogo — não foram testados por um humano jogando de verdade, só simulados. É bem provável que precisem de ajuste fino depois que você sentir o ritmo real.
+- A IA do Kronk agora usa Avalanche com 70% de prioridade sempre que possível durante a Fúria — pode ser agressivo demais ou de menos, ajustável fácil (uma linha em `escolherKronk()`).
+- O visual novo do HUD (cantos ornamentados, cores de Raiva/Foco) é uma primeira passada — me fala se quiser mais/menos ornamento.
+
 **Possível ajuste futuro:** a posição exata das camadas locais (`#sangue-kronk`/`#sangue-bryne`) foi estimada a partir da caixa de cada personagem (não calibrada pixel a pixel como as poses) — pode precisar de ajuste fino depois de ver ao vivo.
 
 **Lição consolidada:** ao limpar fundo de vídeo pra chroma-key, sempre verificar o SCORE da cor de fundo ORIGINAL da filmagem contra o limiar `HIGH` do jogo antes de decidir se precisa de correção — um score "só um pouco acima" do limiar (como esses 57 vs 55) é tão arriscado quanto um score abaixo, porque ruído de compressão pode empurrar pra qualquer lado. O fix definitivo é sempre repintar TODO fundo como verde puro e bem saturado, pixel a pixel — nunca confiar que "está acima do limiar" é suficiente com margem tão apertada.
