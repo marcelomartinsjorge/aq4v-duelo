@@ -843,6 +843,12 @@ Tecnicamente, isso exigiu atrasar o fluxo de turno em 1000ms extra quando a Lâm
 
 ---
 
+### 🟢 v36 — folga da caixa de HP da Bryne aumentada (estava quase encostando)
+
+O ajuste do v35 (8px de folga até a cabeça real) ficou perto demais na prática. Subi a caixa mais um pouco: `top` de 34% pra **28%**, o que aumenta a folga real de ~8px pra ~29px (medido de novo via DOM). `BUILD_VERSION` foi pra `v36`.
+
+---
+
 ### 🟢 v35 — Bryne mais pra dentro da cena, HUD dela bem mais perto do corpo
 
 Usuário mandou print anotado (setas + círculos) mostrando que a caixa de HP/Foco da Bryne ainda estava longe demais dela (lá no topo da tela) e que ela mesma precisava ficar mais pra dentro da imagem (menos colada na borda esquerda).
