@@ -109,14 +109,14 @@
      (frame real + chroma key simulado em Python + render fora do
      navegador). Ver RESUMO_PROJETO_JOGO.md, "CORREÇÃO v20".
   */
-  #kronk .pose-base{ transform:scale(1.09); transform-origin:center bottom; } /* v26: sem mudança de escala, mas o vídeo passou pela limpeza universal de fundo (force_green.py) por segurança extra */
-  #kronk .pose-ataque{ transform:scale(1.70); transform-origin:center bottom; } /* v26: CORREÇÃO -- o vídeo-fonte (kronkattack.mp4) tinha um bug nos últimos 4 frames (144→140): Kronk já tinha voltado à posição de repouso e então "pulava" de volta pra uma pose de ataque do nada (salto de posição confirmado numericamente: variação frame-a-frame de ~0.6 pra 11.0). Cortado em 140 frames. Também aplicada limpeza universal de fundo (força verde puro fora da bbox do personagem) pra eliminar qualquer resíduo semi-opaco de fundo */
+  #kronk .pose-base{ transform:scale(1.02); transform-origin:center bottom; } /* v29: CONTINUIDADE -- o recorte anterior deixava 20px de folga entre os pés e a borda de baixo do quadro (3.6% da altura), bem mais que as outras poses (~0-2%), fazendo o Kronk "flutuar" um pouco no chão comparado às outras poses. Recortado rente aos pés (margem de 1px, igual às demais) */
+  #kronk .pose-ataque{ transform:scale(1.98); transform-origin:center bottom; } /* v27: CORREÇÃO -- a escala anterior (1.70) foi calculada usando a altura MÁXIMA da bbox ao longo da animação, mas esse máximo acontece só no instante em que a maça está erguida bem acima da cabeça (frame ~105, altura 0.965) -- isso NÃO é a altura do corpo do Kronk, é maça+corpo. Na postura neutra (parado, início/fim da animação, frames 0-15 e 115-135, bem estável em ~0.815-0.82) ele é bem mais baixo que esse pico. Calibrar pelo pico fazia o corpo dele ficar menor que o idle na maior parte do tempo. Recalculado usando a altura da postura NEUTRA (0.817) como referência -- agora o corpo bate com as outras poses o tempo todo; só a maça ultrapassa o alvo durante o golpe (esperado, natural) */
   #kronk .pose-dano{ transform:scale(1.87); transform-origin:center bottom; } /* v26: remedida após a limpeza universal de fundo (a vinheta de canto do v25 estava inflando ligeiramente a medição de char_h_frac); escala ajustada de 1.81 pra 1.87 */
-  #kronk .pose-rageataque{ transform:scale(1.76); transform-origin:center bottom; } /* v26: sem mudança de escala (framing já era justo, sem espaço vazio de sobra), mas aplicada limpeza universal de fundo por segurança. Nota: essa animação é um golpe dinâmico -- o Kronk fica agachado/recolhido na maior parte da animação e só atinge a altura máxima (que bate com o idle) no pico do golpe; isso é esperado, não é um erro de escala */
+  #kronk .pose-rageataque{ transform:scale(1.89); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto um problema mais sério que a escala: o recorte anterior (v27) estava DESCENTRALIZADO horizontalmente -- o centro médio do CORPO (medido só nos frames parados, sem a maça) ficava em 62.6% da largura do recorte, não 50%. Isso quebrava a continuidade visual ao trocar de pose (o Kronk "pulava" de lugar). Recalculado o recorte centralizado no corpo de verdade (crop=940:696:130:24, cobrindo toda a amplitude da maça erguida sem cortar nada), novo centro-x = 50.0%. A escala subiu (1.49→1.89) porque o recorte ficou mais largo pra caber a maça simetricamente dos dois lados do corpo centralizado */
   #kronk .pose-ragedano{ transform:scale(1.17); transform-origin:center bottom; } /* v26: sem mudança de escala, limpeza universal de fundo aplicada por segurança extra dentro do recorte já feito no v25 */
-  #kronk .pose-defesa{ transform:scale(1.43); transform-origin:center bottom; } /* v22: vídeo trocado de novo -- usuário mandou o green-screen ORIGINAL de verdade (kronkrageidle.mp4), fundo verde real (83,147,94), não mais a conversão preto->verde sintética que causava pontinhos pretos/buracos no cabelo. Recortado sem a faixa de vinheta nas bordas (pillarbox tinha um degradê pro preto, não corte seco) e re-chaveado com limiar mais estreito (LOW15/HIGH35) ajustado a esse verde específico (mais escuro que um green-screen padrão). Escala recalculada do zero (vídeo 964x720, bem mais largo que os outros) */
-  #kronk .pose-entrarage{ transform:scale(1.05); transform-origin:center bottom; }
-  #kronk .pose-ragetonormal{ transform:scale(1.22); transform-origin:center bottom; } /* v21: vídeo reprocessado de novo (mancha cinza entre braço e tronco, mesmo tipo do entrarage) */
+  #kronk .pose-defesa{ transform:scale(1.00); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto que o recorte do v22 (aprovado na época pela qualidade da chave, mas nunca medido pra centralização/contato com o chão) tinha 68px de folga até o chão (9.4% da altura) e estava 12.6% fora do centro horizontal -- exatamente os mesmos dois problemas que achei e corrigi no rageataque nesta rodada. Como o rage idle é a pose de DESCANSO pra onde todas as outras poses de fúria voltam, essa inconsistência quebrava a continuidade visual toda vez que uma pose trocava pra/da rage idle. Recortado rente ao chão e centralizado no corpo (crop=704:654:64:0 sobre o vídeo já processado), preservando a mesma qualidade de chave do v22 (chroma_sim confirma buracos residuais == fundo real, não personagem) */
+  #kronk .pose-entrarage{ transform:scale(1.91); transform-origin:center bottom; } /* v28: vídeo REGERADO pelo usuário (kronkentersrage.mp4) e reprocessado do zero -- ver RESUMO v28 pra detalhes da pré-chave adaptativa por frame que resolveu o "chroma muda de cor" (na verdade um fade-to-black + vinheta variável). Escala calibrada pela postura FINAL/assentada da transição (que deve bater com o rageidle logo em seguida), não pela postura inicial (ainda normal) */
+  #kronk .pose-ragetonormal{ transform:scale(1.91); transform-origin:center bottom; } /* v28: gerado invertendo os frames do pose-entrarage já corrigido (mesmo vídeo, mesma escala) */
   #kronk .pose-pressao{ transform:scale(1.03); transform-origin:center bottom; }
   #kronk .pose-ragepressao{ transform:scale(1.04); transform-origin:center bottom; } /* v26: sem mudança de escala, limpeza universal de fundo aplicada por segurança extra dentro do recorte já feito no v25 */
 
@@ -498,7 +498,7 @@
     <div class="estados" id="est-bryne"></div>
 
     <div class="lutador" id="kronk">
-      <canvas class="pose-base ativa" data-video="kronkidle_clean_v26.webm"></canvas>
+      <canvas class="pose-base ativa" data-video="kronkidle_v29.webm"></canvas>
       <img class="pose-base-fallback" src="kronk.png" alt="Kronk">
       <canvas class="pose-ataque" data-video="kronkattack_clean_v26.webm"></canvas>
       <img class="pose-ataque-fallback" src="kronkataca.png" alt="Kronk atacando">
@@ -506,17 +506,17 @@
       <img class="pose-pressao-fallback" src="kronkataca.png" alt="Kronk pressionando">
       <canvas class="pose-ragepressao" data-video="kronkinragepressure_clean_v26.webm" data-rage="1"></canvas>
       <img class="pose-ragepressao-fallback" src="kronkrage.png" alt="Kronk enfurecido pressionando">
-      <canvas class="pose-defesa" data-video="kronkrageidle_v3.webm" data-rage="1"></canvas>
+      <canvas class="pose-defesa" data-video="kronkrageidle_v29.webm" data-rage="1"></canvas>
       <img class="pose-defesa-fallback" src="kronkrage.png" alt="Kronk enfurecido">
       <canvas class="pose-dano" data-video="kronkbeenhit_clean_v26.webm"></canvas>
       <img class="pose-dano-fallback" src="kronkbeenhit.png" alt="Kronk ferido">
-      <canvas class="pose-rageataque" data-video="kronkrageattack_clean_v26.webm" data-rage="1"></canvas>
+      <canvas class="pose-rageataque" data-video="kronkrageattack_v29.webm" data-rage="1"></canvas>
       <img class="pose-rageataque-fallback" src="kronkrage.png" alt="Kronk enfurecido atacando">
       <canvas class="pose-ragedano" data-video="kronkinragebeenhit_clean_v26.webm" data-rage="1"></canvas>
       <img class="pose-ragedano-fallback" src="kronkrage.png" alt="Kronk enfurecido ferido">
-      <canvas class="pose-entrarage" data-video="kronkrage_entrando.webm" data-rage="1"></canvas>
+      <canvas class="pose-entrarage" data-video="kronkentersrage_v28.webm" data-rage="1"></canvas>
       <img class="pose-entrarage-fallback" src="kronkrage.png" alt="Kronk entrando em fúria">
-      <canvas class="pose-ragetonormal" data-video="kronkrage_saindo.webm"></canvas>
+      <canvas class="pose-ragetonormal" data-video="kronkragetonormal_v28.webm"></canvas>
       <img class="pose-ragetonormal-fallback" src="kronk.png" alt="Kronk saindo da fúria">
     </div>
     <div class="lutador" id="bryne">
@@ -566,7 +566,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v26';
+const BUILD_VERSION = 'v29';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -808,7 +808,7 @@ function resolverKronk(id){
     // transição pra fúria: toca a animação de transformação uma vez e
     // assenta na pose de rage-idle (em vez de cortar direto pro rage-idle)
     S.kronk._emRage = true;
-    poseTemporariaCustom('kronk','entrarage', 6875, ()=>'defesa');
+    poseTemporariaCustom('kronk','entrarage', 6250, ()=>'defesa'); // v28: 150 frames/24fps (era 6875/165 -- video regerado sem o fade-to-black indevido, ver RESUMO v28)
     som('cura');
     tocar('kronkragescream1.mp3', VOL_VOZ);
     log('Kronk se ENFURECE. <span class="acerto">+10 vida</span>, mais força — mas fica exposto.');
@@ -1102,7 +1102,7 @@ function poseRepouso(quem){
 function retornoKronk(){
   if(S.kronk._emRage && S.ef.furia<=0){
     S.kronk._emRage = false;
-    poseTemporariaCustom('kronk','ragetonormal', 6875, ()=>'base');
+    poseTemporariaCustom('kronk','ragetonormal', 6250, ()=>'base'); // v28: 150 frames/24fps (era 6875/165)
     return null;
   }
   if(S.ef.furia>0) S.kronk._emRage = true;

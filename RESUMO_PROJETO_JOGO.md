@@ -664,6 +664,80 @@ Usuário reportou depois do v25: (1) `kronkattack` com um quadrado cinza quase t
 
 ---
 
+### 🔴 CORREÇÃO v27 — CRÍTICO: escala de `pose-ataque`/`pose-rageataque` calibrada pelo lugar errado do vídeo
+
+Usuário insistiu que `rageataque` continuava "muito menor" que o `rageidle" e apontou o problema real do meu método: eu estava medindo a altura MÁXIMA da bbox ao longo de toda a animação e usando isso pra calibrar a escala — mas em uma animação de golpe, esse máximo acontece só no instante em que a MAÇA está erguida bem acima da cabeça, não na postura normal do corpo. Rastreei a bbox frame a frame (não só o máximo global) pra entender exatamente onde o Kronk está em cada momento:
+
+- **`kronkrageattack`**: postura neutra (parado, frames 0-21 no início e 66-95 no final, ambos bem estáveis) ocupa só **~0.66** da altura do quadro. O PICO (maça erguida, frames ~27 e ~38) chega a **~0.92-0.97**. Diferença de quase 50%! A escala anterior (1.76) foi calibrada pelo pico, fazendo o corpo dele parecer bem menor que o `rageidle` durante todo o resto da animação — exatamente o que foi reportado.
+- **`kronkattack`**: mesmo padrão, mas mais discreto (postura neutra ~0.82, pico ~0.96-0.97, diferença de ~17%).
+
+**Fix:** recortado cada vídeo rente à amplitude TOTAL de movimento (incluindo o pico, sem cortar a maça erguida) e recalibrada a escala usando a altura da postura NEUTRA (não o pico) como referência — assim o CORPO do Kronk fica do mesmo tamanho que todas as outras poses o tempo todo, e só a maça ultrapassa esse tamanho durante o instante do golpe (natural, esperado, igual uma arma de qualquer jogo se estendendo durante um ataque).
+
+| Pose | Recorte aplicado | Referência usada antes → depois | Scale antes → depois |
+|---|---|---|---|
+| `pose-ataque` | (sem recorte, já não tinha mais margem) | pico (0.9514/0.9653) → postura neutra (0.817) | 1.70 → **1.98** |
+| `pose-rageataque` | `crop=772:696:109:24` | pico (0.9208) → postura neutra (0.679, dentro do recorte) | 1.76 → **1.49** |
+
+**Validação:** medi a altura real do personagem NA TELA (canvas ao vivo, `toDataURL` + `getBoundingClientRect`) em vários momentos da animação de `rageataque` (não só um frame aleatório) e comparei com `rageidle` — momentos de postura assentada batem bem próximo agora (290px vs 275px, ~5% de diferença, contra os ~30-40% de antes).
+
+**Sobre `kronkentersrage`/`kronkragetonormal`:** usuário relatou de novo que a remoção de chroma está tirando pedaço demais do Kronk. Rodei uma busca bem mais rigorosa que da vez passada: em vez de procurar "manchas opacas suspeitas" (que pega cabelo/traje escuro legítimo como falso-positivo), procurei especificamente por BURACOS TRANSPARENTES cuja cor bruta NÃO parece fundo verde (ou seja, candidatos reais a "pedaço do personagem virou transparente por engano"). Resultado: em toda a animação amostrada, achei só **1 candidato pequeno (126px)**, o resto dos buracos detectados eram fundo verde genuíno (vazando entre braço/corpo) ou o efeito de halo sutil perto de objetos finos (correntes/tiras) já documentado no v26. Isso sugere que o problema relatado pode ser mais sobre EROSÃO CONTÍNUA da silhueta (afinamento nas bordas do personagem, tipo mãos/cabelo ficando mais finos que deveriam) do que buracos isolados — esse tipo de erosão não aparece no meu detector de "buraco enclausurado" porque não é uma ilha cercada de opacidade, é a própria borda encolhendo. **Não apliquei nenhum fix nesse vídeo ainda** — não quero arriscar piorar às cegas (já aconteceu antes nesse projeto, ver v21). Continua precisando ou (a) do vídeo `kronkentersrage.mp4` regerado sem o fade-to-black, ou (b) de uma indicação bem específica de ONDE (timestamp/frame) a peça some, pra eu conseguir investigar o pixel exato.
+
+`BUILD_VERSION` foi pra `v27`.
+
+---
+
+### 🟢 CORREÇÃO v28 — `kronkentersrage`/`kronkragetonormal` finalmente resolvidos (pré-chave adaptativa por frame)
+
+Usuário reenviou o MESMO `kronkentersrage.mp4` de antes (confirmado por hash/duração/frame count idênticos) e descreveu o problema como "2 cores de chroma diferentes". Medindo a cor de fundo REAL em cada frame individualmente (não só em amostras esparsas), confirmei que não são 2 cores discretas — é um **fade contínuo e monotônico**: o fundo (e o próprio Kronk, já que ele também escurece) vai de um verde saudável (score~63-91, frames 0-96) até preto total (score negativo, frame ~155+), sem nenhum corte abrupto no meio. A vinheta que eu tinha confundido com "pillarbox fixo" na sessão anterior também é parte do mesmo fenômeno (não é uma barra preta fixa — é fundo real que só está mais escuro nas bordas em alguns momentos).
+
+**Fix implementado — pré-chave ADAPTATIVA por frame (`prekey_adaptive.py`):** em vez de um limiar global fixo (que falha assim que o fundo escurece além do LOW/HIGH fixos do jogo), cada frame tem sua PRÓPRIA cor de fundo medida (amostrando 4 cantos confiavelmente longe do personagem) e um limiar relativo a ELA. Pixels classificados como fundo (relativos ao verde daquele frame específico, seja qual for) são repintados como verde puro e saturado — "achatando" a variação/fade antes mesmo do algoritmo padrão do jogo rodar em cima. Isso manteve uma chave limpa e verificada de frame 0 até o frame **152 de 165** (quase 92% da animação).
+
+**Limite físico real (não dá pra contornar):** a partir do frame ~153, o fundo E o Kronk convergem pra exatamente a mesma cor (preto quase puro) — não sobra NENHUMA informação de cor pra separar personagem de fundo, em qualquer algoritmo. Confirmado numericamente: nesse ponto, o quadro inteiro vira opaco (0 a 100% da tela), não tem mais chave possível.
+
+**Verificação importante antes de cortar:** rastreei o movimento do personagem (diferença de pixel frame a frame) nos últimos ~45 frames — confirmado que ele já está **parado, na pose final assentada**, desde por volta do frame 118-120. Ou seja, cortar em 150 frames não perde nenhum movimento/gesto real, só o escurecimento final que o próprio usuário já disse não querer.
+
+**Resultado:** vídeo cortado em 150 frames (era 165), recorte vertical do pillarbox/vinheta (`crop=1280:612:0:53`), limpeza universal de fundo aplicada por cima, verificado quadro a quadro (bbox e fração de opacidade estáveis e plausíveis em toda a faixa 0-150, incluindo o momento crítico do rugido/maça erguida por volta do frame 90-149).
+
+**Escala:** calibrada pela postura FINAL/assentada da transição (não pela inicial) — já que essa pose faz handoff direto pro loop de `rage idle`, faz mais sentido que a altura final bata com ele. `char_h_frac` final ≈0.998 dentro do recorte → **scale 1.91**.
+
+**`pose-ragetonormal`:** gerado invertendo os frames do vídeo já corrigido (mesmo scale, 1.91) — como planejado desde o início.
+
+**Duração:** ambos os JS (`entrarage` e `ragetonormal`) atualizados de 6875ms/165 frames pra **6250ms/150 frames**.
+
+**Validação:** testado ao vivo (Playwright, seek preciso por `video.currentTime`) — o personagem fica dentro da área visível (`.cena`) tanto na postura neutra quanto na postura final/mais alta da animação.
+
+`BUILD_VERSION` foi pra `v28`.
+
+---
+
+### 🔴 CORREÇÃO v29 — CRÍTICO: descoberto o problema de CONTINUIDADE entre poses (posição, não só tamanho)
+
+Usuário deu uma instrução chave que eu não tinha seguido até agora: medir a posição do Kronk **pensando nele como personagem na tela**, não só olhar números do vídeo bruto isoladamente — ou seja, checar se ele fica exatamente no mesmo lugar/tamanho quando uma pose termina e a próxima começa. Até aqui eu só validava a ALTURA de cada pose isoladamente contra o `target`; nunca tinha medido a posição HORIZONTAL nem o contato exato dos pés com o chão comparando pose com pose.
+
+**Medição (bbox do personagem só nos frames parados/neutros, sem deformação de movimento):**
+
+| Vídeo | Centro-X medido | Devia ser | Folga até o chão |
+|---|---|---|---|
+| `kronkrageattack` (v27) | **62.6%** | 50% | 0.1% (ok) |
+| `kronkrageidle_v3` (pose de descanso da fúria, do v22, nunca medido antes) | **43.7%** | 50% | **9.4%** |
+| `kronkidle` (v26) | 50.2% (ok) | 50% | **3.6%** |
+| outras poses | 47.7%-53.2% | 50% | 0.1%-1.8% |
+
+Os dois piores casos — `rageataque` (12.6% fora do centro) e principalmente o **`rageidle`** (12.6% fora do centro + quase 10% de folga até o chão) — explicam o problema de continuidade relatado: como `rageidle` é a pose de DESCANSO pra onde tudo na fúria volta, qualquer inconsistência nele quebra a continuidade toda vez que uma pose troca de/para ele, mesmo que a pose específica esteja "certa" isoladamente.
+
+**Fix:**
+- `kronkrageattack`: recortado de novo, agora centralizado no CORPO (medido só nos frames sem o balanço da maça, que distorcia a média) — `crop=940:696:130:24`, cobrindo toda a amplitude da maça sem cortar nada. Novo centro-x: 50.0%. Escala: 1.49 → **1.89** (subiu porque o recorte ficou mais largo pra caber a maça simetricamente).
+- `kronkidle`: recortado rente aos pés (era 20px de folga, virou 1px). Escala: 1.09 → **1.02**.
+- `kronkrageidle_v3` (do v22): recortado em cima do vídeo já processado (sem precisar do material bruto), centralizado no corpo e rente ao chão — `crop=704:654:64:0`. Escala: 1.43 → **1.00** (ficou quase exata, o recorte novo bate quase perfeitamente com a proporção da caixa).
+
+**Validação (a mais rigorosa até agora):** escrevi um teste que mede a posição REAL na tela do personagem — não só a caixa do canvas, mas calculando corretamente onde o `object-fit:contain`+`object-position:bottom` posiciona o conteúdo dentro da caixa já escalada, em X e Y — e comparei entre poses consecutivas (idle→ataque→dano, e rageidle→ragepressao→rageataque→ragedano). Antes do fix, o "fundo dos pés" variava até 24px entre poses (fúria) e o centro-x variava até 90px; depois do fix, a variação caiu pra ~7px verticais e ~9-25px horizontais entre as poses normais/fúria — uma melhora grande, ainda não 100% perfeita mas muito mais consistente.
+
+`BUILD_VERSION` foi pra `v29`.
+
+**Lição consolidada:** daqui pra frente, toda pose nova ou recalibrada precisa ser validada em DUAS dimensões — altura (já fazia) E posição horizontal + contato com o chão (não fazia) — comparando com as poses vizinhas na máquina de estados do jogo, não só isoladamente.
+
+---
+
 ## 5. BUG DO CONGELAMENTO (RESOLVIDO, mas frágil)
 
 Vídeos WebM neste projeto às vezes chegam em `currentTime === duration` mas o evento `ended` **não dispara** (bug de navegador/codec). Isso causava congelamento no fim de animações longas (contra-ataque, 8s).
