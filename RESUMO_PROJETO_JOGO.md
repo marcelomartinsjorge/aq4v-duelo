@@ -821,6 +821,30 @@ Usuário reportou 3 coisas depois de ver o v32 ao vivo:
 
 `BUILD_VERSION` foi pra `v33`.
 
+---
+
+### 🆕 v34 — cutscene de ultimate, animação de escudo quebrando, reposicionamento fino
+
+**1) HUD do Kronk realmente movido pra baixo dele.** A tentativa do v33 (compactar e deixar acima) ainda deixava ~12px sobre o cabelo — o usuário confirmou que ainda incomodava. Desta vez movi de vez pra ABAIXO do Kronk (`top:70%`, logo depois do fim da caixa dele em ~68%), resolvendo de vez a sobreposição.
+
+**2) Bryne reposicionada mais para cima.** `#bryne` foi de `bottom:-2% height:95%` pra `bottom:6% height:92%` — ela sobe uma faixa visível da cena, conforme indicado.
+
+**3) Animação de escudo quebrando (`escudoquebrachomakey.mp4`).** Processada com o mesmo rigor de sempre: tinha um fade-to-black no final (cortado em 136 de 166 frames) e uma vinheta de canto (mesmo tipo de score-perto-do-limiar já visto antes, resolvida com `force_green_v2.py`). Como o vídeo é bem dinâmico (o movimento de recuo/impacto usa o quadro quase todo), não recortei mais — segui o mesmo caminho do `kronkattack` (sem recorte adicional). **Achado importante:** as poses da Bryne NÃO usam o mesmo `target=0.9405` do Kronk — medi 3 vídeos existentes dela e todos convergem pra um padrão próprio (`char_h_frac≈0.465` em `scale:1`). Recalibrei a pose nova pra bater com ESSE padrão dela (escala 0.81), não com o do Kronk. Nova pose `pose-escudoquebra`, disparada automaticamente quando o escudo (Parede de Escudos) chega a 0 de vida.
+
+Durante a implementação achei e corrigi um bug: o código já chamava `poseDano('bryne')` incondicionalmente logo depois de aplicar qualquer dano nela, o que sobrescrevia a animação de escudo quebrando assim que ela tentava tocar. Corrigido: `poseDano` agora só toca quando o escudo NÃO acabou de quebrar naquele exato golpe.
+
+**4) Cutscene de ultimate (Lâmina e Avalanche).** Sistema novo: fade pra preto → arte em tela cheia (`bryneULTIMATE.jpg`/`kronkinrageULTIMATE.jpg`, redimensionadas pra 1280px de largura) → nome da habilidade em Cinzel dourado → som metálico (sintetizado via Web Audio, parciais inarmônicas + ruído filtrado, mesmo estilo dos outros sons do jogo) → corta pra animação normal do ataque. Duração: 1000ms (dentro da faixa pedida de 0.8-1.2s).
+
+Tecnicamente, isso exigiu atrasar o fluxo de turno em 1000ms extra quando a Lâmina ou o Avalanche são usados — a Lâmina via `resolverBryne(id, cutscenePlayed)` (chama a si mesma de novo depois da cutscene, com uma flag pra não repetir), o Avalanche via uma função nova `finalizarTurnoKronk()` que extrai a lógica de pós-turno do Kronk (antes tudo dentro de `faseKronk`) pra poder ser chamada tanto direto quanto depois da cutscene.
+
+**Validação:** testei as duas cutscenes disparando de verdade (`jogadorAge('lamina')` e forçando a IA a escolher `'avalanche'`), confirmando: a arte certa aparece, o nome certo aparece, a cutscene fecha sozinha, e o ataque de fato acontece depois (dano aplicado). Testei a animação de escudo quebrando com golpes reais até quebrar. Rodei o jogo completo de novo (várias rodadas de IA) sem erros — só precisei aumentar a margem de espera dos meus testes em ~1.5s pra dar conta do delay novo da cutscene (não é bug, só timing de teste).
+
+`BUILD_VERSION` foi pra `v34`.
+
+**Pontos que só dá pra confirmar vendo ao vivo:**
+- A posição nova da Bryne (mais alta) e do HUD do Kronk (embaixo) foram ajustadas por medição de DOM, mas o "quanto" exato foi uma estimativa razoável meu — pode precisar de mais um ajuste fino depois que você ver.
+- Não consegui abrir as imagens anexadas nesta sessão (o visualizador de imagem no meu ambiente continua quebrado) — processei o vídeo/imagens só pelas specs técnicas e pela sua descrição em texto.
+
 **Ponto em aberto:** não tenho como ver as imagens que você anexou nesta sessão (ficou quebrado o visualizador de imagem no ambiente) — trabalhei só com a descrição textual da conversa. Se a posição/escala dos personagens no novo cenário precisar de ajuste fino, me diga em números aproximados (ex.: "Kronk devia estar mais pra a esquerda", "os dois mais afastados um do outro") que eu aplico e meço via DOM real, como fiz com o resto.
 
 **Pontos que precisam da sua avaliação depois de jogar:**
