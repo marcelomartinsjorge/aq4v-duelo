@@ -841,6 +841,23 @@ Tecnicamente, isso exigiu atrasar o fluxo de turno em 1000ms extra quando a Lâm
 
 `BUILD_VERSION` foi pra `v34`.
 
+---
+
+### 🟢 v35 — Bryne mais pra dentro da cena, HUD dela bem mais perto do corpo
+
+Usuário mandou print anotado (setas + círculos) mostrando que a caixa de HP/Foco da Bryne ainda estava longe demais dela (lá no topo da tela) e que ela mesma precisava ficar mais pra dentro da imagem (menos colada na borda esquerda).
+
+Medi a posição REAL dela (pixels visíveis, não a caixa CSS) antes de mexer: cabeça em 48.7% da altura da cena, borda esquerda em apenas 3.7% da largura (quase colada na borda).
+
+**Fix:**
+- `#bryne`: `left` de 2% pra **12%** — ela sobe visivelmente mais pra dentro do quadro (borda esquerda real passa de 3.7% pra 13.7%).
+- `#hp-bryne`: `top` de 0.2% pra **34%** — a caixa agora fica logo acima da cabeça real dela (medida: caixa termina em ~166px, cabeça começa em ~174px — uma folga de só 8px, bem coladinha mas sem sobrepor).
+- Status dela (`#est-bryne`) acompanharam a caixa pra continuar logo abaixo dela.
+
+Reconferido com medição de DOM real (não só visual) antes de fechar, e rodei o teste de regressão completo (poses + sangue + mecânicas) sem erros.
+
+`BUILD_VERSION` foi pra `v35`.
+
 **Pontos que só dá pra confirmar vendo ao vivo:**
 - A posição nova da Bryne (mais alta) e do HUD do Kronk (embaixo) foram ajustadas por medição de DOM, mas o "quanto" exato foi uma estimativa razoável meu — pode precisar de mais um ajuste fino depois que você ver.
 - Não consegui abrir as imagens anexadas nesta sessão (o visualizador de imagem no meu ambiente continua quebrado) — processei o vídeo/imagens só pelas specs técnicas e pela sua descrição em texto.

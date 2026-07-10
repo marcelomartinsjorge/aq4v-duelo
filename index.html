@@ -92,7 +92,7 @@
   }
   #bryne{
     bottom:6%;
-    left:2%;
+    left:12%;
     width:30%;
     height:92%;
     z-index:3;
@@ -245,7 +245,7 @@
   .hpbox::before{top:-1px;left:-1px;border-right:none;border-bottom:none;}
   .hpbox::after{bottom:-1px;right:-1px;border-left:none;border-top:none;}
   #hp-kronk{top:70%;right:5%;}
-  #hp-bryne{top:0.2%;left:4%;}
+  #hp-bryne{top:34%;left:11%;}
   .hpbox .nome{
     font-family:'Cinzel',serif;
     font-weight:700;
@@ -312,7 +312,7 @@
     max-width:44%;
   }
   #est-kronk{top:calc(70% + 46px);right:5%;justify-content:flex-end;}
-  #est-bryne{top:calc(0.2% + 46px);left:4%;}
+  #est-bryne{top:calc(34% + 46px);left:11%;}
   .pilula{
     position:relative;
     font-family:'Cinzel',serif;
@@ -754,7 +754,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v34';
+const BUILD_VERSION = 'v35';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
