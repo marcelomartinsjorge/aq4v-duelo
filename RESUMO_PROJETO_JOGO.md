@@ -634,6 +634,36 @@ Usuário reportou depois do deploy do v24: idle gigante (cabeça não cabe na te
 
 ---
 
+### 🟢 CORREÇÃO v26 — bug real no vídeo de ataque, "quadrado cinza" residual, e avaliação a fundo do entrarage/ragetonormal
+
+Usuário reportou depois do v25: (1) `kronkattack` com um quadrado cinza quase transparente ao redor + um bug nos últimos frames (personagem já tinha voltado ao normal e "pulava" de volta pra pose de ataque do nada); (2) `kronkbeenhit` ainda com resquício do retângulo; (3) `kronkentersrage`/`kronkragetonormal` com chroma muito ruim, pedindo avaliação minuciosa; (4) `kronkrageataque` parecendo muito menor que o `kronkrageidle`, + o mesmo quadrado cinza; (5) `kronkinragebeenhit` também com o quadrado cinza. Pediu resolução definitiva de tudo.
+
+**1) Bug real confirmado em `kronkattack.mp4`:** rastreei o centróide da silhueta e a diferença de pixel frame-a-frame em todo o final da animação. Do frame 133 ao 139 o personagem está claramente assentando (diferença caindo de 1.1 pra 0.57, quieto). No frame 140 a diferença SALTA pra 11.0 (~15-20x o normal) e o centróide pula de posição — os frames 140-143 são um artefato de geração do vídeo (Kronk "pulando" de volta pra uma pose de ataque). Cortado o vídeo em 140 frames (era 144), removendo exatamente esse trecho. `dur` do JS também estava desatualizado (5708ms/137 frames, valor órfão de antes da v23) — corrigido pra 5833ms/140 frames.
+
+**2) "Quadrado cinza quase transparente":** investigação com o `chroma_sim.py` mostrou que pixels de fundo PURO e bem saturado (ex.: RGB≈(2,230,0), score≈228, bem acima do HIGH=55) às vezes recebem um alpha residual baixo (10-80 de 255) mesmo devendo ser 100% transparentes. Causa: a 2ª passada do algoritmo ao vivo (cicatrização de buraco, janela pequena raio 6) puxa o alpha de um pixel de fundo pra cima se a vizinhança imediata for majoritariamente opaca — o que acontece perto de objetos finos e escuros (correntes/ossos pendurados no traje do Kronk, tiras de couro). Isso é uma **característica intencional do algoritmo ao vivo** (documentada desde a v11: existe justamente pra não deixar fios de cabelo finos sumirem), não um bug de um vídeo específico — por isso aparece "quase imperceptível" em vários vídeos diferentes. Não dá pra eliminar 100% sem arriscar reabrir o problema original (cabelo/tiras finas desaparecendo) que essa lógica resolve.
+
+**Mitigação aplicada:** criei uma limpeza universal de fundo (`force_green.py`) — mede a bounding box do personagem ao longo de TODA a animação (com margem de segurança) e repinta tudo FORA dela como verde puro e saturado (0,255,0), eliminando qualquer resíduo de vinheta/ruído de compressão nas bordas antes mesmo de chegar no algoritmo ao vivo. Aplicado em `kronkattack`, `kronkbeenhit`, `kronkrageattack`, `kronkinragebeenhit`, `kronkidle`, `kronkinragepressure` (todos os vídeos do Kronk processados até agora). Isso reduz bastante a área onde o efeito residual pode aparecer (só resta perto de objetos finos DENTRO da silhueta real, que é onde a lógica precisa ficar ativa por design).
+
+**Escalas recalculadas após a limpeza** (a maioria não mudou, exceto `pose-dano`):
+| Pose | Scale v25 | Scale v26 |
+|---|---|---|
+| `pose-base` | 1.09 | 1.09 (sem mudança) |
+| `pose-ataque` | 1.70 | 1.70 (sem mudança, só cortado+limpo) |
+| `pose-dano` | 1.81 | **1.87** (remedido; a vinheta de canto do v25 inflava um pouco a medição) |
+| `pose-rageataque` | 1.76 | 1.76 (sem mudança, só limpo) |
+| `pose-ragedano` | 1.17 | 1.17 (sem mudança, só limpo) |
+| `pose-ragepressao` | 1.04 | 1.04 (sem mudança, só limpo) |
+
+**3) `pose-rageataque` "muito menor que o rageidle":** medi a altura real do personagem NA TELA (via canvas ao vivo, `getBoundingClientRect` + `toDataURL`) comparando os dois. Confirmado que no PICO do golpe (braço/maça estendidos), a altura bate com o target igual às outras poses — mas essa é uma animação de golpe DINÂMICA, então o personagem passa boa parte do tempo agachado/recolhido antes e depois do golpe, o que é normal pra esse tipo de movimento (bem diferente do rageidle, que é um loop parado sempre na altura máxima). Não é um erro de escala pra corrigir — é a natureza do movimento. Se o usuário ainda achar que está errado especificamente no MOMENTO do golpe (não no meio do movimento), precisa de prints novos apontando esse instante exato.
+
+**4) `kronkentersrage`/`kronkragetonormal` — avaliação minuciosa feita, mas SEM fix aplicado ainda:** rodei detecção de blobs (opaco+neutro+escuro) no vídeo atualmente publicado (`kronkrage_entrando.webm`) — encontrei 335 blobs candidatos ao longo da animação, de tamanhos entre 150 e ~1900px, espalhados pela altura toda do corpo (y=0.2 a 0.88). Não dá pra saber com segurança, sem confirmação visual, quais desses são cabelo/traje ESCURO LEGÍTIMO do Kronk e quais são artefato de fundo — a v21 já documentou que aplicar remoção automática de mancha cinza sem essa distinção **destruiu cabelo e abriu buraco no peito** em outro vídeo (`rageataque` antigo). Pra não arriscar piorar o vídeo atual às cegas, não apliquei nenhuma limpeza automática nele ainda. Segue precisando do vídeo `kronkentersrage.mp4` regerado sem o fade-to-black (confirmado como erro de geração pelo usuário) — só com esse vídeo novo, limpo, dá pra aplicar o mesmo pipeline rigoroso usado nos outros 6 vídeos desta sessão.
+
+**Validação:** Playwright real de novo (todas as 7 poses do Kronk), sem erros de JS, personagem sempre dentro da área visível (`.cena`).
+
+`BUILD_VERSION` foi pra `v26`.
+
+---
+
 ## 5. BUG DO CONGELAMENTO (RESOLVIDO, mas frágil)
 
 Vídeos WebM neste projeto às vezes chegam em `currentTime === duration` mas o evento `ended` **não dispara** (bug de navegador/codec). Isso causava congelamento no fim de animações longas (contra-ataque, 8s).
