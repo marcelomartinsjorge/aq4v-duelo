@@ -563,6 +563,49 @@ Depois do v21, usuário mandou print real do jogo (canvas capturado via `toDataU
 
 ---
 
+### 🟢 CORREÇÃO v23 — 3 vídeos trocados por green-screen real (ataque, ragedano, rageataque) + itens em aberto
+
+Nova conversa (sandbox anterior tinha travado por espaço em disco). Usuário reenviou os vídeos-fonte com fundo verde REAL (não a conversão preto→verde sintética que causou os problemas do v22): `kronkattack.mp4`, `kronkinragebeenhit.mp4`, `kronkrageattack.mp4`, `kronkinragepressure.mp4`, `kronkentersrage.mp4`, `kronkidle.mp4`.
+
+**Metodologia usada (reproduzida do zero nesta conversa, já que é uma sessão nova sem os scripts antigos):**
+- Recriado `chroma_sim.py` replicando EXATAMENTE o algoritmo ao vivo do `index.html` (`score=min(g-r,g-b)`, LOW=15/HIGH=55, alpha contínuo, imagem integral raio 6 e 40, despill) — validado linha por linha contra `configurarVideosIdle()`.
+- Verificação de qualidade objetiva: em vez de só "olhar", detectei automaticamente (a) blobs opacos+baixo-matiz+escuros (candidatos a mancha cinza) e (b) buracos transparentes ENCLAUSURADOS (não tocam a borda da imagem) — e para cada buraco encontrado, amostrei a cor RGB bruta no centro pra confirmar se era fundo verde real (vazando por uma abertura natural entre braço/corpo ou entre as pernas — normal, não é bug) ou um artefato genuíno. Todos os buracos encontrados nos 3 vídeos abaixo eram fundo verde real (RGB dominante em G), não bugs.
+- Escala recalculada do zero com a fórmula padrão (`A=1.0323`, `target=0.9405`, `char_h_frac` via percentil de massa 0.3–99.7).
+- Teste real com Playwright (servidor local + `poseAtaque('kronk','golpe')`/`poseDano('kronk')`/`S.ef.furia=3`+`setPose('kronk','defesa')`), capturando o canvas real via `toDataURL()` — sem erros de JS, vídeos carregam e tocam.
+
+**Resultado (prontos, já aplicados no `index.html` desta sessão):**
+| Pose | Vídeo novo | Scale novo | Nome do arquivo |
+|---|---|---|---|
+| `pose-ataque` | `kronkattack.mp4` | **1.70** (era 1.15, mas era outro vídeo-fonte, não comparável) | `kronkataca_anim_v23.webm` |
+| `pose-rageataque` | `kronkrageattack.mp4` | **1.76** (era 1.15) | `kronkrage_ataque_v23.webm` |
+| `pose-ragedano` | `kronkinragebeenhit.mp4` | **2.64** (era 1.04) — personagem ocupa fração bem menor do quadro nesse vídeo (`char_h_frac=0.6125` vs ~0.92-0.95 dos outros), CONFIRMAR visualmente após deploy já que é o salto de escala mais agressivo dessa rodada | `kronkrage_beenhit_v23.webm` |
+
+`BUILD_VERSION` foi pra `v23`.
+
+**Itens EM ABERTO desta sessão (aguardando decisão do usuário antes de aplicar):**
+1. **`kronkbeenhit.mp4` (dano normal, sem fúria) NÃO foi enviado nesta rodada** — `pose-dano` continua com o vídeo antigo (`kronkbeenhit_anim_norm.webm`, scale 1.07), sem mudança.
+2. **`kronkidle.mp4`** — provavelmente é o novo `pose-base` (idle normal), pergunta em aberto desde a conversa anterior. Se confirmado, a escala do próprio `pose-base` também precisa ser recalculada (não é mais `scale:1` automático) — medição desta sessão: `char_h_frac=0.6653` → scale necessário **2.43** pra igualar o `target=0.9405` já usado por todas as outras poses.
+3. **`kronkinragepressure.mp4`** (garrar/pressão de parede em fúria) — hoje NÃO existe uma pose dedicada pra isso: o código (`poseAtaque()`) usa a MESMA animação de `rageataque` pra qualquer ataque em fúria, incluindo garrar/peso (decisão de design documentada: "em fúria, TODO ataque usa a animação única de ataque em fúria"). Usar esse vídeo exige criar uma pose nova (`pose-ragepressao` ou similar) + mudar essa lógica em `poseAtaque()`. Escala calculada e pronta caso confirmado: `char_h_frac=0.7472` → scale **2.17**.
+4. **`kronkentersrage.mp4`** — tem pillarbox real preto no topo/base (linhas 0-52 e 666-719 de 720, fixo) E o vídeo tem um efeito de fade-to-black dramático embutido (frames ~78 a 164 de 165): a cena inteira (fundo E o próprio Kronk) escurece progressivamente até ficar quase preto total no último frame.
+
+---
+
+### 🟢 CORREÇÃO v24 — pose nova (ragepressao), pose-dano e pose-base trocados, mesma altura garantida em todas as poses
+
+Usuário confirmou os pontos em aberto do v23:
+1. `pose-dano` (dano normal): vídeo `kronkbeenhit.mp4` enviado, verde real, sem buracos genuínos (buracos encontrados eram fundo real vazando entre braço/corpo). Escala recalculada: **1.81**.
+2. `pose-base` (idle normal): confirmado que `kronkidle.mp4` é o substituto, e confirmado explicitamente que **todas as poses devem manter o Kronk na MESMA estatura** (não só as de fúria). Como consequência, `pose-base` deixou de ser a "referência implícita em scale:1" e passou a ter sua própria escala calculada pela mesma fórmula/target (0.9405) que todas as outras: **2.43**.
+3. Confirmado que existem animações dedicadas pra garrar/pressão de parede: `kronkpressure.mp4` (versão normal, já implantada como `kronkpressao_normal.webm`, usuário confirmou que já estava perfeita e não foi tocada) e `kronkinragepressure.mp4` (versão em fúria, NOVA). Criada a pose **`pose-ragepressao`** (canvas + fallback + CSS + lógica em `poseAtaque()`): antes, `emRage` sempre usava a animação de `rageataque` mesmo pra garrar/peso; agora `emRage && usaPressao` usa a pose nova dedicada. Escala: **2.17**.
+4. `kronkentersrage.mp4`: usuário confirmou que o fade-to-black **não era intencional** (erro na geração do vídeo, feito no Google Veo pelo watermark visível no canto). Como o beat dramático principal (rugido + maça erguida) acontece justamente DURANTE o trecho que escurece, não dá pra simplesmente cortar o vídeo mais cedo sem perder esse momento — o vídeo precisa ser **regerado do zero** sem o escurecimento antes de eu poder processá-lo. `pose-entrarage`/`pose-ragetonormal` continuam com o vídeo antigo por enquanto.
+
+**Validação:** testado ao vivo com Playwright (servidor local + `poseAtaque('kronk','garrar')` com `S.ef.furia=3` → confirma que a pose ativada agora é `pose-ragepressao ativa`, não mais `pose-rageataque`), sem erros de JS. Capturas de canvas (`toDataURL`) de todas as poses novas com fração de opacidade e altura de silhueta plausíveis, sem sinal de falha catastrófica (tela em branco, canvas 0×0, etc.).
+
+`BUILD_VERSION` foi pra `v24`.
+
+**Pendente para v25:** regenerar `kronkentersrage.mp4` sem o fade-to-black, reprocessar, e só então gerar `kronkragetonormal` invertendo os frames.
+
+---
+
 ## 5. BUG DO CONGELAMENTO (RESOLVIDO, mas frágil)
 
 Vídeos WebM neste projeto às vezes chegam em `currentTime === duration` mas o evento `ended` **não dispara** (bug de navegador/codec). Isso causava congelamento no fim de animações longas (contra-ataque, 8s).
