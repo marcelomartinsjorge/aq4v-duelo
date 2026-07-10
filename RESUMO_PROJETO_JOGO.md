@@ -910,6 +910,33 @@ Três fixes:
 
 `BUILD_VERSION` foi pra `v38`.
 
+---
+
+### 🔴 v39/v40 — bug de escala GRAVE achado e corrigido (Bryne), cutscene com imagem errada, Avalanche com pose dedicada
+
+Usuário reportou 3 problemas depois do v38:
+
+**1) Escudo bloqueando sem animação de reação.** Investigado a fundo: testei o cenário exato (postura de escudo ativa, Kronk acerta, escudo absorve sem quebrar) e a pose `danodefesa` TROCA corretamente nos meus testes automatizados — não consegui reproduzir "nenhuma animação". Encontrei e corrigi uma inconsistência real no processo: o código assumia 168 frames/24fps=7000ms pro vídeo `brynedano_defesa_norm.webm`, mas o arquivo real tem 100 frames a 25fps=4000ms (conferido via ffprobe). Isso não deveria travar nada (o jogo usa o evento `ended` real do vídeo, não o número chutado, pra decidir quando a animação acaba), mas deixava o timer de segurança 2.8x mais longo que o necessário caso `ended` falhasse. Corrigido o valor. Se o problema persistir depois desse fix, preciso de mais detalhe (exatamente quantos hits, em que sequência) pra conseguir reproduzir.
+
+**2) Erro de escala GRAVE achado — a causa raiz de "muito pequena".** Usuário está certo, e o erro foi meu: eu vinha usando `A=1.0323` (a proporção da caixa do **Kronk**) pra calcular a escala das poses NOVAS da Bryne (`pose-escudoquebra` no v34, `pose-ataqueultimate` no v38) — mas a caixa dela (`#bryne`) tem uma proporção BEM diferente da do Kronk. Medi via DOM real: caixa do Kronk = 1.038 de proporção, caixa da Bryne = **0.583**. Usar a constante errada fazia o `rhf` sair errado e a escala ficar pequena demais nas duas poses.
+
+**Fix:** recalculado com a proporção REAL da caixa da Bryne, e — pra não confiar só na fórmula de novo — validei EMPIRICAMENTE, capturando o canvas ao vivo e comparando a altura renderizada na tela contra uma pose já aprovada dela (`pose-dano`):
+
+| Pose | Scale errado (v34/v38) | Scale corrigido | Diferença vs referência aprovada |
+|---|---|---|---|
+| `pose-escudoquebra` | 0.81 | **1.44** | 1.5% |
+| `pose-ataqueultimate` | 0.83 | **1.47** | 4.3% |
+
+**3) Cutscene mostrando a imagem errada por um instante.** Causa provável: ao trocar `img.src`, se a nova imagem ainda não estava carregada/decodificada, o navegador pode continuar mostrando a imagem ANTERIOR por uma fração de segundo enquanto a nova carrega — exatamente o que foi visto (arte da Bryne aparecendo antes da do Kronk). Fix: as duas artes agora são pré-carregadas assim que o jogo abre (`new Image()` em background), então a troca de `src` já encontra a imagem pronta, sem esse instante de imagem antiga.
+
+**4) `kronkultimate.mp4` processado (animação do Avalanche).** Processado com o rigor máximo desta vez, seguindo à risca a lição de medir o PERSONAGEM, não o vídeo: vídeo de 240 frames/10s, com uma variação de altura enorme entre postura neutra (~0.60-0.74 no início) e o pico do golpe erguido (~1.0 no meio) — calibrado pela postura ASSENTADA no final (frames 175-235, média 0.8123), não pelo pico. Sem recorte adicional (o balanço já usa quase o quadro inteiro, como o `kronkattack`). Antes de fechar, validei comparando a altura renderizada de verdade (captura de canvas ao vivo) contra a `pose-dano` já aprovada — 3.6% de diferença no momento assentado, dentro da margem aceitável. Agora o Avalanche tem sua própria pose dedicada (`pose-avalanche`), em vez de reusar a animação da macada.
+
+**Validação:** todos os 4 itens testados via Playwright com medição real de DOM/canvas (não só rodar e assumir que está certo) — a mesma exigência de rigor que já vinha aplicando, só que dessa vez também pras poses da Bryne, onde o erro da constante de proporção passou despercebido antes.
+
+`BUILD_VERSION` foi pra `v40`.
+
+**Lição consolidada (importante pra qualquer pose futura de qualquer personagem):** a constante de proporção da caixa (`A` no cálculo de `rhf`) é ESPECÍFICA de cada caixa (`#kronk` ≠ `#bryne`), porque cada uma tem seu próprio `width`/`height` em % — nunca reusar a constante de um personagem pro outro. Sempre medir a proporção real via `getBoundingClientRect()` antes de calcular, e sempre que possível validar o resultado final comparando a altura renderizada de verdade contra uma pose já aprovada do MESMO personagem, não só confiar na fórmula.
+
 **Pontos que só dá pra confirmar vendo ao vivo:**
 - Não consegui abrir as imagens/prints anexados nesta sessão (o visualizador de imagem no meu ambiente continua quebrado) — processei tudo pela descrição em texto e por medição de DOM real, não por inspeção visual direta.
 

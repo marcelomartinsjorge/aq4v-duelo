@@ -155,9 +155,10 @@
   #kronk .pose-base{ transform:scale(1.02); transform-origin:center bottom; } /* v29: CONTINUIDADE -- o recorte anterior deixava 20px de folga entre os pés e a borda de baixo do quadro (3.6% da altura), bem mais que as outras poses (~0-2%), fazendo o Kronk "flutuar" um pouco no chão comparado às outras poses. Recortado rente aos pés (margem de 1px, igual às demais) */
   #kronk .pose-ataque{ transform:scale(1.98); transform-origin:center bottom; } /* v27: CORREÇÃO -- a escala anterior (1.70) foi calculada usando a altura MÁXIMA da bbox ao longo da animação, mas esse máximo acontece só no instante em que a maça está erguida bem acima da cabeça (frame ~105, altura 0.965) -- isso NÃO é a altura do corpo do Kronk, é maça+corpo. Na postura neutra (parado, início/fim da animação, frames 0-15 e 115-135, bem estável em ~0.815-0.82) ele é bem mais baixo que esse pico. Calibrar pelo pico fazia o corpo dele ficar menor que o idle na maior parte do tempo. Recalculado usando a altura da postura NEUTRA (0.817) como referência -- agora o corpo bate com as outras poses o tempo todo; só a maça ultrapassa o alvo durante o golpe (esperado, natural) */ /* v30: achado o retângulo cinza -- o force_green.py (v26) só repintava de verde puro FORA de uma bbox retangular; a cor de fundo ORIGINAL da filmagem (dentro da bbox, nunca repintada) tinha score~57, só 2 pontos acima do HIGH=55 do jogo -- perto o bastante do limiar pra ruído de compressão VP9 empurrar pixels de volta pra semi-opaco. Corrigido com limpeza POR PIXEL (force_green_v2.py): usa o alpha calculado de verdade pra decidir o que é fundo, não uma caixa -- todo fundo (dentro ou fora de qualquer região) agora é verde puro, score~254, bem longe do limiar */
   #kronk .pose-dano{ transform:scale(1.87); transform-origin:center bottom; } /* v26: remedida após a limpeza universal de fundo (a vinheta de canto do v25 estava inflando ligeiramente a medição de char_h_frac); escala ajustada de 1.81 pra 1.87 */
-  #bryne .pose-escudoquebra{ transform:scale(0.81); transform-origin:center bottom; } /* v34: vídeo novo (escudoquebrachomakey.mp4), 1280x720 (as outras poses da Bryne são 720x1280, retrato). Medi 3 poses existentes dela pra achar o padrão de tamanho real (char_h_frac~0.465 em scale:1, não o target 0.9405 usado no Kronk -- ela usa uma convenção própria) e recalibrei essa pose nova pra bater com ela */
-  #bryne .pose-ataqueultimate{ transform:scale(0.83); transform-origin:center bottom; } /* v38: vídeo do golpe de A Lâmina (bryneultimate.mp4), 1280x720 recortado/recentralizado (1240x720). Mesma calibração pelo padrão de tamanho próprio da Bryne (char_h_frac~0.465 equivalente) */
+  #bryne .pose-escudoquebra{ transform:scale(1.44); transform-origin:center bottom; } /* v39: CORREÇÃO -- a escala anterior (0.81) foi calculada usando A=1.0323 (proporção da caixa do KRONK), mas a caixa da Bryne (#bryne) tem proporção BEM diferente (medida via DOM: 0.583, não 1.0323 -- as caixas deles têm width/height% bem diferentes). Isso fazia rhf sair errado e a escala ficar pequena demais. Recalculado com a proporção real da caixa dela (0.583) */
+  #bryne .pose-ataqueultimate{ transform:scale(1.47); transform-origin:center bottom; } /* v39: mesma correção do pose-escudoquebra -- escala recalculada com a proporção real da caixa da Bryne (0.583), não a do Kronk (1.0323) */
   #kronk .pose-rageataque{ transform:scale(1.89); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto um problema mais sério que a escala: o recorte anterior (v27) estava DESCENTRALIZADO horizontalmente -- o centro médio do CORPO (medido só nos frames parados, sem a maça) ficava em 62.6% da largura do recorte, não 50%. Isso quebrava a continuidade visual ao trocar de pose (o Kronk "pulava" de lugar). Recalculado o recorte centralizado no corpo de verdade (crop=940:696:130:24, cobrindo toda a amplitude da maça erguida sem cortar nada), novo centro-x = 50.0%. A escala subiu (1.49→1.89) porque o recorte ficou mais largo pra caber a maça simetricamente dos dois lados do corpo centralizado */ /* v30: mesmo fix do pose-ataque -- limpeza por pixel (force_green_v2.py) em cima do fundo original que tinha score perto do limiar */
+  #kronk .pose-avalanche{ transform:scale(1.98); transform-origin:center bottom; } /* v40: pose dedicada do Avalanche (kronkultimate.mp4, 240 frames/10s). Vídeo tem grande variação de altura (postura neutra ~0.60-0.74 no início, pico de ~1.0 durante o golpe erguido no meio, assentando em ~0.81 no final) -- calibrado pela postura ASSENTADA final (frames 175-235, média 0.8123), não pelo pico, mesma lição do pose-ataque/pose-rageataque. Sem recorte (o balanço já usa quase o quadro todo, como o kronkattack). Validado por comparação direta (DOM) contra pose-dano já aprovada */
   #kronk .pose-ragedano{ transform:scale(1.17); transform-origin:center bottom; } /* v26: sem mudança de escala, limpeza universal de fundo aplicada por segurança extra dentro do recorte já feito no v25 */
   #kronk .pose-defesa{ transform:scale(1.00); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto que o recorte do v22 (aprovado na época pela qualidade da chave, mas nunca medido pra centralização/contato com o chão) tinha 68px de folga até o chão (9.4% da altura) e estava 12.6% fora do centro horizontal -- exatamente os mesmos dois problemas que achei e corrigi no rageataque nesta rodada. Como o rage idle é a pose de DESCANSO pra onde todas as outras poses de fúria voltam, essa inconsistência quebrava a continuidade visual toda vez que uma pose trocava pra/da rage idle. Recortado rente ao chão e centralizado no corpo (crop=704:654:64:0 sobre o vídeo já processado), preservando a mesma qualidade de chave do v22 (chroma_sim confirma buracos residuais == fundo real, não personagem) */
   #kronk .pose-entrarage{ transform:scale(1.91); transform-origin:center bottom; } /* v28: vídeo REGERADO pelo usuário (kronkentersrage.mp4) e reprocessado do zero -- ver RESUMO v28 pra detalhes da pré-chave adaptativa por frame que resolveu o "chroma muda de cor" (na verdade um fade-to-black + vinheta variável). Escala calibrada pela postura FINAL/assentada da transição (que deve bater com o rageidle logo em seguida), não pela postura inicial (ainda normal) */
@@ -729,6 +730,8 @@
       <img class="pose-dano-fallback" src="kronkbeenhit.png" alt="Kronk ferido">
       <canvas class="pose-rageataque" data-video="kronkrageattack_v30.webm" data-rage="1"></canvas>
       <img class="pose-rageataque-fallback" src="kronkrage.png" alt="Kronk enfurecido atacando">
+      <canvas class="pose-avalanche" data-video="kronkavalanche.webm" data-rage="1"></canvas>
+      <img class="pose-avalanche-fallback" src="kronkrage.png" alt="Kronk desferindo Avalanche">
       <canvas class="pose-ragedano" data-video="kronkinragebeenhit_clean_v26.webm" data-rage="1"></canvas>
       <img class="pose-ragedano-fallback" src="kronkrage.png" alt="Kronk enfurecido ferido">
       <canvas class="pose-entrarage" data-video="kronkentersrage_v28.webm" data-rage="1"></canvas>
@@ -792,7 +795,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v38';
+const BUILD_VERSION = 'v40';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -803,11 +806,21 @@ const CUTSCENE_DURATION = 1000; // ms que a arte de ultimate fica na tela antes 
 /* Cutscene de ultimate (v34): fade pra preto -> arte cinematográfica em tela cheia ->
    nome da habilidade -> som metálico -> corta pro ataque normal. Chama callback()
    quando termina, pra quem chamou prosseguir com a resolução real do ataque. */
+// Pré-carrega as duas artes de ultimate assim que o jogo abre, pra troca de
+// <img src> na cutscene ser instantânea (sem isso, o navegador podia manter
+// a imagem ANTERIOR visível por um instante enquanto a nova ainda carrega —
+// dava a impressão de "ver a arte errada" por uma fração de segundo).
+const cutscenePreload = {
+  bryne: Object.assign(new Image(), {src:'bryneULTIMATE.jpg'}),
+  kronk: Object.assign(new Image(), {src:'kronkinrageULTIMATE.jpg'}),
+};
+
 function tocarCutsceneUltimate(quem, nomeHab, callback){
   const overlay = document.getElementById('cutscene-ultimate');
   const img = document.getElementById('cutscene-img');
   const titulo = document.getElementById('cutscene-titulo');
-  img.src = quem==='bryne' ? 'bryneULTIMATE.jpg' : 'kronkinrageULTIMATE.jpg';
+  const src = quem==='bryne' ? 'bryneULTIMATE.jpg' : 'kronkinrageULTIMATE.jpg';
+  img.src = src;
   titulo.textContent = nomeHab;
   overlay.classList.add('ativa');
   som('metalico');
@@ -1140,7 +1153,7 @@ function resolverKronk(id){
   }
 
   // ataques: macada, garrar, maca, avalanche
-  poseAtaque('kronk', id==='avalanche' ? 'macada' : id);
+  poseAtaque('kronk', id);
   anim('kronk','atacando');
   const bonusFuria = ef.furia>0 ? 2 : 0;
   let nome, alvoDIF;
@@ -1589,7 +1602,8 @@ function poseAtaque(quem, tipoOuId){
     S.kronk._emRage = emRage;
     const usaPressao = (tipoOuId==='garrar' || tipoOuId==='peso');
     let pose, dur;
-    if(emRage && usaPressao){ pose='ragepressao'; dur=4000; }  // 96 frames/24fps -- v24: pose nova, antes reusava rageataque
+    if(tipoOuId==='avalanche'){ pose='avalanche'; dur=10000; }  // v40: 240 frames/24fps, pose dedicada (kronkultimate.mp4)
+    else if(emRage && usaPressao){ pose='ragepressao'; dur=4000; }  // 96 frames/24fps -- v24: pose nova, antes reusava rageataque
     else if(emRage){ pose='rageataque'; dur=4000; }        // 96 frames/24fps
     else if(usaPressao){ pose='pressao'; dur=4542; }       // 109 frames/24fps
     else { pose='ataque'; dur=5833; }                      // v26: 140 frames/24fps (era 5708/137, valor desatualizado desde a troca de vídeo no v23 -- não causava bug visível pq o vídeo real manda via 'ended'/polling, mas estava incorreto)
@@ -1612,8 +1626,12 @@ function poseDano(quem){
   if(quem==='bryne'){
     const emDefesa = !!(S.ef.terreno||S.ef.leitura||S.ef.paredeAtiva);
     const pose = emDefesa ? 'danodefesa' : 'dano';
-    // vídeo completo: idle=96 frames=4000ms / defesa=168 frames=7000ms
-    poseTemporariaCustom('bryne', pose, emDefesa?7000:4000, ()=>poseRepouso('bryne'));
+    // v39: duração real conferida via ffprobe -- dano idle=96 frames/24fps=4000ms;
+    // danodefesa=100 frames/25fps=4000ms (era 7000ms no código, nunca bateu com o
+    // arquivo real -- o 'ended' do vídeo sempre mandou de verdade, então não
+    // travava por causa disso, mas o timer de segurança ficava desnecessariamente
+    // longo caso 'ended' falhasse)
+    poseTemporariaCustom('bryne', pose, 4000, ()=>poseRepouso('bryne'));
     return;
   }
   const emRage = S.ef.furia>0;
