@@ -882,6 +882,34 @@ Três fixes:
 
 `BUILD_VERSION` foi pra `v37`.
 
+---
+
+### 🆕 v38 — Estamina (mecânica nova), tooltips corrigidos em toda parte, vídeo de ultimate da Bryne
+
+**1) Tooltips cortando na tela.** Achado: só tinha corrigido o lado da Bryne no v31/v32 (pílulas de status ancoradas à esquerda). Os do Kronk (`#est-kronk`, ancorados à direita da cena) e os das HABILIDADES (grid de 2 colunas) ainda usavam o padrão centralizado, que vaza em telas estreitas. Testei em 375px de largura (mobile) e confirmei: botões da coluna esquerda cortavam à esquerda, coluna direita cortava à direita. Corrigido com o mesmo princípio nos dois lugares — cada lado ancora o balão pro lado que tem espaço, coluna par vs ímpar, cobrindo tanto hover (desktop) quanto o estado `.mostrar-tip` (toque em mobile). Testado nos dois viewports (691px e 375px) e no submenu de Ataque Estratégico também.
+
+**2) HUD da Bryne subiu mais** (`top` de 23% pra **18%**) — combinado com a barra nova de Estamina (item 3), a folga real até a cabeça dela agora é de ~59px (16.6% da cena).
+
+**3) Estamina — mecânica nova pra Bryne.** Terceiro recurso dela (além de HP e Foco), pensado pra criar uma decisão real de ritmo: ela regenera sozinha, mas os ataques mais fortes custam mais do que isso, então dá pra ser agressiva por um tempo mas não pra sempre.
+
+| Regra | Valor |
+|---|---|
+| Estamina máxima | 100 |
+| Estamina inicial | 100 (cheia) |
+| Regeneração | +20 no início de cada turno dela (sempre, mesmo se ficar atordoada) |
+| Estocada | custa **35** — e agora causa sangramento **garantido** (100%, era 50% de chance) |
+| A Lâmina | custa **50** (além de exigir Foco cheio — precisa dos dois recursos ao mesmo tempo) |
+| Ataque Estratégico (todas as variantes) | **grátis**, 0 de custo |
+| Terreno / Leitura / Parede de Escudos | grátis, 0 de custo |
+
+**Por que esses números:** com regen de 20/turno e Estocada custando 35, dá pra usar Estocada toda vez por um tempo (ela começa cheia, com bastante reserva), mas o saldo líquido é negativo (-15/turno) — eventualmente ela esvazia e precisa recorrer ao Ataque Estratégico (grátis, mas mais fraco e sem o sangramento garantido) pra recuperar fôlego. A Lâmina, com os dois gates (Foco cheio + 50 de Estamina), vira uma decisão de "guardar os dois recursos" genuína, não só esperar uma barra encher. Botões desabilitam sozinhos (com aviso "sem estamina") quando não dá pra pagar o custo, do mesmo jeito que a Lâmina já fazia com o Foco.
+
+**4) Vídeo de ultimate da Bryne (`bryneultimate.mp4`).** Processado com o mesmo rigor de sempre (fundo já vinha saudável, sem fade — só limpeza por pixel e recentralização, centro-x foi de ~0.57 pra 0.54). Calibrado pelo padrão de tamanho próprio da Bryne (mesma lição do escudo quebrando, char_h_frac~0.465 equivalente). Agora, depois da cutscene de "A Lâmina", em vez da animação de ataque padrão dela, toca esse vídeo específico — nova pose `pose-ataqueultimate`.
+
+**Validação:** testei a estamina de ponta a ponta (custo da Estocada, sangramento garantido, esgotamento ao longo de vários turnos, botão desabilitando, Ataque Estratégico realmente grátis) e o vídeo de ultimate ativando depois da cutscene. Regressão completa (poses+sangue+mecânicas+cutscenes) sem erros.
+
+`BUILD_VERSION` foi pra `v38`.
+
 **Pontos que só dá pra confirmar vendo ao vivo:**
 - Não consegui abrir as imagens/prints anexados nesta sessão (o visualizador de imagem no meu ambiente continua quebrado) — processei tudo pela descrição em texto e por medição de DOM real, não por inspeção visual direta.
 
