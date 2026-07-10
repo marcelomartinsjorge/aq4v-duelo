@@ -734,6 +734,22 @@ Os dois piores casos — `rageataque` (12.6% fora do centro) e principalmente o 
 
 `BUILD_VERSION` foi pra `v29`.
 
+---
+
+### 🟢 CORREÇÃO v30 — achada a causa raiz de verdade do "retângulo cinza" (só em `kronkattack`/`kronkrageattack`)
+
+Usuário confirmou que o resto do jogo está perfeito e pediu foco só nesses dois vídeos. Fiz uma varredura pixel a pixel na fronteira exata da bbox usada pelo `force_green.py` (v26/v29) e achei o problema real:
+
+**Causa raiz:** o `force_green.py` só repintava de verde puro (0,255,0) o que estivesse FORA de uma bbox retangular ao redor do personagem. Dentro dessa bbox, os pixels de fundo genuíno (nos vãos entre braço/corpo, pernas, etc.) mantinham a cor ORIGINAL da filmagem — que mede score≈57 (fórmula do jogo: `min(g-r,g-b)`). O `HIGH` do jogo é 55. Ou seja, esse fundo "original" ficava só **2 pontos acima do limiar** — perto o suficiente pra qualquer ruído de compressão do VP9 empurrar pixels individuais de volta pra baixo de 55, sobrando um resíduo semi-opaco (o "cinza quase transparente" relatado).
+
+**Fix:** criei `force_green_v2.py` — em vez de repintar por RETÂNGULO, repinta por PIXEL: calcula o alpha de verdade (mesmo algoritmo do jogo) pra CADA pixel do frame e repinta de verde puro qualquer pixel classificado como fundo (alpha baixo), esteja ele dentro ou fora de qualquer bbox. Depois do fix, o fundo inteiro mede score≈254 (bem longe do limiar de 55) — e os únicos pixels que sobram na "zona de perigo" (score 40-70) são as bordas naturais do próprio contorno do Kronk (~2% do frame, exatamente onde deveriam estar, para a transição suave da silhueta), não mais espalhados pelo fundo.
+
+**Verificado:** buracos residuais (vãos legítimos entre membros) continuam corretos e até um pouco menores que antes (8 e 13 frames com buraco, contra ~20+ antes) — a limpeza por pixel também ajudou a fechar pequenos vãos internos que sobravam. Nenhuma mudança de escala ou recorte — só a cor de fundo interna foi corrigida.
+
+`BUILD_VERSION` foi pra `v30`.
+
+**Lição consolidada:** ao limpar fundo de vídeo pra chroma-key, sempre verificar o SCORE da cor de fundo ORIGINAL da filmagem contra o limiar `HIGH` do jogo antes de decidir se precisa de correção — um score "só um pouco acima" do limiar (como esses 57 vs 55) é tão arriscado quanto um score abaixo, porque ruído de compressão pode empurrar pra qualquer lado. O fix definitivo é sempre repintar TODO fundo como verde puro e bem saturado, pixel a pixel — nunca confiar que "está acima do limiar" é suficiente com margem tão apertada.
+
 **Lição consolidada:** daqui pra frente, toda pose nova ou recalibrada precisa ser validada em DUAS dimensões — altura (já fazia) E posição horizontal + contato com o chão (não fazia) — comparando com as poses vizinhas na máquina de estados do jogo, não só isoladamente.
 
 ---
