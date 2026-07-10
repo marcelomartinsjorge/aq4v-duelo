@@ -748,6 +748,41 @@ Usuário confirmou que o resto do jogo está perfeito e pediu foco só nesses do
 
 `BUILD_VERSION` foi pra `v30`.
 
+---
+
+### 🆕 v31 — Sistema de sangue implementado (efeito de crítico + sangue normal em Bryne e Kronk)
+
+Usuário enviou `bloodcriticalhit.mp4` (green-screen, 1280x720, 121 frames/24fps, ~5s) pra usar como efeito de "sangue voando na tela" no crítico de Bryne, e pediu sangue normal em ambos os personagens quando tomam dano.
+
+**Processamento do vídeo-fonte:** mesmo diagnóstico de sempre — tinha um fade-to-black nos últimos frames (score de fundo caindo de 233 pra 10 entre os frames 100-120). Cortado em 110 frames (mantendo boa margem de segurança, score≥120 no último frame usado) e limpo com `force_green_v2.py` (a limpeza por pixel do v30). Medida a bbox real do sangue (y=173-557, x=518-743 de 720x1280 — um jorro concentrado na parte de cima/centro da tela, não a tela toda).
+
+**Dois vídeos gerados a partir da mesma fonte:**
+- `bloodcritico.webm` — vídeo completo (1280x720), usado como camada CHEIA cobrindo a `.cena` inteira, pro efeito dramático de crítico.
+- `bloodnormal.webm` — recortado na bbox do sangue + margem (290x498), uma versão menor e mais contida, usada localmente perto de cada personagem nos hits normais.
+
+**Implementação no jogo:**
+- 3 camadas novas em `.cena`: `#sangue-critico` (cobre a cena inteira, `object-fit:cover`), `#sangue-kronk` e `#sangue-bryne` (posicionadas perto da cabeça/tronco de cada um, `object-fit:contain`, ~28%x34% da cena).
+- `configurarEfeitosSangue()`: réplica do mesmo pipeline de chroma key ao vivo usado nas poses (mesma fórmula de score/LOW/HIGH, mesma cicatrização de buraco por janela integral), mas numa função separada — essas camadas não são "poses" de um `.lutador`, não fazem loop, não têm fallback de imagem.
+- `dispararSangue(id)` (e os wrappers `dispararSangueCritico/Kronk/Bryne`): toca o vídeo do zero e usa o MESMO padrão híbrido `ended`+sondagem já testado no `poseTemporariaCustom` (pro bug conhecido de `ended` não disparar em alguns navegadores com webm) pra esconder a camada sozinha quando o efeito termina.
+
+**Gatilhos adicionados nos 6 pontos onde dano é aplicado:**
+| Evento | Gatilho |
+|---|---|
+| Bryne acerta Kronk (ataque principal) | `dispararSangueKronk()` |
+| Bryne contra-ataca Kronk (brecha de Terreno) | `dispararSangueKronk()` |
+| Kronk sangra (dano por turno, DoT) | `dispararSangueKronk()` |
+| Kronk acerta Bryne (ataque principal) | `dispararSangueBryne()` + `dispararSangueCritico()` se `crit` |
+| Kronk contra-ataca Bryne (Peso) | `dispararSangueBryne()` |
+| Bryne contra-ataca Kronk (brecha de Terreno) | já coberto acima (mesmo eventoc) |
+
+O efeito de crítico (`bloodcritico`) só dispara quando **Bryne** leva o crítico, como pedido — os outros hits (Kronk crítico incluso) usam só o sangue local normal.
+
+**Validação:** testado disparando as camadas diretamente E através das funções REAIS do jogo (`resolverBryne('estocada')`, `resolverKronk('macada'/'maca')`, com `Math.random` mockado pra forçar crítico) — confirmado que o sangue aparece no momento certo do combate (respeitando os delays de impacto `DELAY_IMPACTO`/`DELAY_IMPACTO_KRONK`) e some sozinho quando o vídeo termina. Capturado o canvas ao vivo durante o efeito: cobertura pequena e localizada (~4.3% da área, condizente com um jorro, não uma mancha sólida) e cor predominantemente vermelha escura, confirmando que o chroma key está limpo.
+
+`BUILD_VERSION` foi pra `v31`.
+
+**Possível ajuste futuro:** a posição exata das camadas locais (`#sangue-kronk`/`#sangue-bryne`) foi estimada a partir da caixa de cada personagem (não calibrada pixel a pixel como as poses) — pode precisar de ajuste fino depois de ver ao vivo.
+
 **Lição consolidada:** ao limpar fundo de vídeo pra chroma-key, sempre verificar o SCORE da cor de fundo ORIGINAL da filmagem contra o limiar `HIGH` do jogo antes de decidir se precisa de correção — um score "só um pouco acima" do limiar (como esses 57 vs 55) é tão arriscado quanto um score abaixo, porque ruído de compressão pode empurrar pra qualquer lado. O fix definitivo é sempre repintar TODO fundo como verde puro e bem saturado, pixel a pixel — nunca confiar que "está acima do limiar" é suficiente com margem tão apertada.
 
 **Lição consolidada:** daqui pra frente, toda pose nova ou recalibrada precisa ser validada em DUAS dimensões — altura (já fazia) E posição horizontal + contato com o chão (não fazia) — comparando com as poses vizinhas na máquina de estados do jogo, não só isoladamente.

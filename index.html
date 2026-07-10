@@ -94,6 +94,43 @@
     z-index:3;
   }
 
+  /* Efeitos de sangue (v31). Camada cheia (crítico) cobre a cena inteira;
+     camadas locais ficam posicionadas perto da cabeça/tronco de cada
+     personagem (onde o corte visualmente "conecta"), com tamanho menor.
+     Todas usam o MESMO pipeline de chroma key ao vivo dos vídeos de pose
+     (canvas + vídeo oculto + configurarEfeitosSangue()), só que sem
+     loop e sem troca de "pose" — é uma camada extra que aparece por cima
+     de tudo e se esconde sozinha quando o vídeo termina. */
+  .sangue-critico{
+    position:absolute; inset:0;
+    z-index:10;
+    pointer-events:none;
+    opacity:0;
+  }
+  .sangue-critico.ativa{ opacity:1; }
+  .sangue-critico canvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+  }
+  .sangue-local{
+    position:absolute;
+    z-index:6;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .05s ease;
+  }
+  .sangue-local.ativa{ opacity:1; }
+  .sangue-local canvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:contain;
+  }
+  /* posicionado perto da cabeça/tronco do Kronk (caixa #kronk: top 6%-68%, right 4%-40%) */
+  #sangue-kronk{ top:12%; right:8%; width:28%; height:34%; }
+  /* posicionado perto da cabeça/tronco da Bryne (caixa #bryne: mais baixa e à esquerda, personagem em primeiro plano) */
+  #sangue-bryne{ top:14%; left:4%; width:26%; height:32%; }
+
   /* Correção de tamanho aparente do Kronk por pose (v20).
      BUG CRÍTICO encontrado e corrigido na v20: da v14 até a v19, todo o
      cálculo de escala usou A = 36/62 = 0.58 como "proporção da caixa
@@ -497,6 +534,16 @@
     <div class="estados" id="est-kronk"></div>
     <div class="estados" id="est-bryne"></div>
 
+    <div class="sangue-critico" id="sangue-critico">
+      <canvas data-video="bloodcritico.webm"></canvas>
+    </div>
+    <div class="sangue-local" id="sangue-kronk">
+      <canvas data-video="bloodnormal.webm"></canvas>
+    </div>
+    <div class="sangue-local" id="sangue-bryne">
+      <canvas data-video="bloodnormal.webm"></canvas>
+    </div>
+
     <div class="lutador" id="kronk">
       <canvas class="pose-base ativa" data-video="kronkidle_v29.webm"></canvas>
       <img class="pose-base-fallback" src="kronk.png" alt="Kronk">
@@ -566,7 +613,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v30';
+const BUILD_VERSION = 'v31';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -647,6 +694,7 @@ function faseKronk(){
     aplicarDanoKronk(d);
     S.ef.sangra--;
     poseDano('kronk');
+    dispararSangueKronk();
     vozKronkLevouDano();
     log(`Kronk sangra — <span class="ruim">${d}</span> de dano. (${S.ef.sangra} turno${S.ef.sangra===1?'':'s'} restante${S.ef.sangra===1?'':'s'})`);
     floats('kronk',d,'dano');
@@ -701,6 +749,7 @@ function resolverBryne(id){
       setTimeout(()=>{
         aplicarDanoKronk(dano);
         poseDano('kronk');
+        dispararSangueKronk();
         impacto('kronk','corte');
         if(crit){
           som('critico');
@@ -740,6 +789,7 @@ function resolverBryne(id){
           log('Kronk usa o peso — <span class="ruim">contra-ataque: 6</span>.');
           aplicarDanoBryne(6,true);
           poseDano('bryne');
+          dispararSangueBryne();
           floats('bryne',6,'dano');
           anim('bryne','golpeado'); abalar();
         } else {
@@ -861,6 +911,8 @@ function resolverKronk(id){
 
       aplicarDanoBryne(dano,false);
       poseDano('bryne');
+      dispararSangueBryne();
+      if(crit) dispararSangueCritico();
       impacto('bryne','golpe');
       anim('bryne','golpeado'); abalar();
 
@@ -895,6 +947,7 @@ function resolverKronk(id){
         log('Bryne aproveita a brecha — <span class="acerto">contra-ataque: 5</span>.');
         aplicarDanoKronk(5);
         poseDano('kronk');
+        dispararSangueKronk();
         floats('kronk',5,'dano');
         anim('kronk','golpeado');
       } else {
@@ -1580,6 +1633,132 @@ function configurarVideosIdle(){
   });
 }
 configurarVideosIdle();
+
+/* --- Efeitos de sangue (v31): mesmo pipeline de chroma key ao vivo dos
+   vídeos de pose, mas pra camadas de efeito -- sem loop, sem fallback,
+   e a camada some sozinha quando o vídeo termina (mesmo padrão híbrido
+   ended+sondagem do poseTemporariaCustom, pro mesmo bug de 'ended' não
+   disparar em alguns navegadores/codecs webm). */
+function configurarEfeitosSangue(){
+  document.querySelectorAll('.sangue-critico canvas[data-video], .sangue-local canvas[data-video]').forEach(canvas=>{
+    const camada = canvas.closest('.sangue-critico, .sangue-local');
+    const ctx = canvas.getContext('2d', {willReadFrequently:true});
+    const vid = document.createElement('video');
+    vid.src = cb(canvas.dataset.video);
+    vid.loop = false; vid.muted = true; vid.playsInline = true;
+    vid.setAttribute('playsinline','');
+    vid.preload = 'auto';
+    vid.crossOrigin = 'anonymous';
+    canvas._vid = vid;
+    let ok = false;
+    let proc, pctx;
+
+    function loop(){
+      requestAnimationFrame(loop);
+      if(!ok) return;
+      if(!camada.classList.contains('ativa')) return;
+      if(vid.readyState < 2 || !vid.videoWidth) return;
+      if(!proc || proc.width!==vid.videoWidth){
+        proc = document.createElement('canvas');
+        proc.width = vid.videoWidth; proc.height = vid.videoHeight;
+        pctx = proc.getContext('2d', {willReadFrequently:true});
+        canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
+      }
+      pctx.drawImage(vid,0,0,proc.width,proc.height);
+      let frame;
+      try{ frame = pctx.getImageData(0,0,proc.width,proc.height); }
+      catch(e){ return; }
+      const d = frame.data;
+      const W = proc.width, H = proc.height;
+      const n = W*H;
+      if(!canvas._alphaBuf || canvas._alphaBuf.length!==n){
+        canvas._alphaBuf = new Float32Array(n);
+        canvas._integral = new Float64Array((W+1)*(H+1));
+      }
+      const alphaBuf = canvas._alphaBuf;
+      const integral = canvas._integral;
+      const LOW=15, HIGH=55;
+      for(let i=0, p=0; i<d.length; i+=4, p++){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        const score = Math.min(g-r, g-b);
+        let a;
+        if(score<=LOW) a=255;
+        else if(score>=HIGH) a=0;
+        else a = 255*(1-(score-LOW)/(HIGH-LOW));
+        alphaBuf[p]=a;
+      }
+      for(let y=0;y<H;y++){
+        let rowSum=0;
+        const rowBase=(y+1)*(W+1);
+        const prevRowBase=y*(W+1);
+        for(let x=0;x<W;x++){
+          rowSum += alphaBuf[y*W+x];
+          integral[rowBase+x+1] = integral[prevRowBase+x+1] + rowSum;
+        }
+      }
+      function mediaJanela(cx,cy,raio){
+        const x0=cx-raio<0?0:cx-raio, x1=cx+raio>=W?W-1:cx+raio;
+        const y0=cy-raio<0?0:cy-raio, y1=cy+raio>=H?H-1:cy+raio;
+        const A=integral[y0*(W+1)+x0], B=integral[y0*(W+1)+x1+1];
+        const C=integral[(y1+1)*(W+1)+x0], D=integral[(y1+1)*(W+1)+x1+1];
+        const area=(x1-x0+1)*(y1-y0+1);
+        return (D-B-C+A)/area;
+      }
+      for(let i=0, p=0; i<d.length; i+=4, p++){
+        const cx = p % W, cy = (p/W)|0;
+        const pequena = mediaJanela(cx,cy,6);
+        let final = Math.max(alphaBuf[p], pequena);
+        if(final>0){
+          const grande = mediaJanela(cx,cy,40);
+          if(grande<15) final = 0;
+        }
+        const r=d[i], g=d[i+1], b=d[i+2];
+        if(final>0 && g-b>10 && g-r>10){
+          d[i+1] = Math.round((r+b)/2);
+        }
+        d[i+3] = final<0?0:(final>255?255:final);
+      }
+      ctx.putImageData(frame,0,0);
+    }
+    vid.addEventListener('loadeddata', ()=>{ ok=true; });
+    loop();
+  });
+}
+configurarEfeitosSangue();
+
+const sangueTimers = {};
+function dispararSangue(id){
+  const camada = document.getElementById(id);
+  if(!camada) return;
+  const canvas = camada.querySelector('canvas');
+  const vid = canvas && canvas._vid;
+  if(!vid) return;
+  if(sangueTimers[id]){
+    clearTimeout(sangueTimers[id].t);
+    clearInterval(sangueTimers[id].i);
+    vid.removeEventListener('ended', sangueTimers[id].onEnded);
+  }
+  camada.classList.add('ativa');
+  try{ vid.currentTime = 0; }catch(e){}
+  vid.play().catch(()=>{});
+  let jaFinalizou = false;
+  const finalizar = ()=>{
+    if(jaFinalizou) return;
+    jaFinalizou = true;
+    camada.classList.remove('ativa');
+    clearInterval(intervalId);
+    vid.removeEventListener('ended', onEnded);
+  };
+  const onEnded = ()=>finalizar();
+  vid.addEventListener('ended', onEnded, {once:true});
+  const intervalId = setInterval(()=>{
+    if(vid.ended || (vid.duration && vid.currentTime >= vid.duration - 0.02)) finalizar();
+  }, 30);
+  sangueTimers[id] = {t:setTimeout(finalizar, 6000), i:intervalId, onEnded};
+}
+function dispararSangueCritico(){ dispararSangue('sangue-critico'); }
+function dispararSangueKronk(){ dispararSangue('sangue-kronk'); }
+function dispararSangueBryne(){ dispararSangue('sangue-bryne'); }
 
 // retoma o play dos vídeos em loop no primeiro clique (autoplay bloqueado)
 document.addEventListener('click', ()=>{
