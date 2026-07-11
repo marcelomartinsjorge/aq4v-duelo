@@ -1051,6 +1051,22 @@ A escala atual (1.91) foi calibrada pela postura FINAL da transformação, pra b
 
 `BUILD_VERSION` foi pra `v45`.
 
+---
+
+### 🔴 v46 — corte de cabeça de verdade (não "diferença de tamanho"): entrarage, ragepressao e ragemorre
+
+Usuário corrigiu minha leitura do v45: o problema do `entrarage` não era ficar menor, era ficar **maior** — a cabeça saindo da tela no final. E apontou o `ragepressao` como desproporcional também. Investiguei os dois a fundo, medindo a posição real da cabeça (não só altura/centro).
+
+**Achado 1 — `pose-entrarage`:** confirmei o corte de verdade. Calculando a posição exata da cabeça (não só o tamanho do canvas, que tem bastante margem transparente), o topo da cabeça ficava perigosamente perto da borda — o vídeo-fonte já tem o Kronk quase tocando o topo do PRÓPRIO quadro filmado no pico do crescimento (medido: `char_h_frac=0.9984` de um quadro de 612px, sobrando menos de 1 pixel). Bater o alvo de tamanho em cima disso não deixava margem nenhuma pra erro — em telas mais estreitas (testei em 375px), a folga real caía quase a zero. Reduzida a escala de **1.91 para 1.80** (também aplicado no `pose-ragetonormal`, que usa o mesmo vídeo invertido) — a folga de segurança foi de ~0px pra ~12-14% da altura da cena, ao custo de ficar um pouco menor que o rage idle (perto de 8-14% menor, em vez de bater perfeito).
+
+**Achado 2 — `pose-ragepressao`:** esse era mais grave, e o erro foi meu desde o v44. Eu tinha medido só um instante isolado achando ele pequeno demais (163.6px) e corrigido a escala pra 1.303 — mas esse vídeo TAMBÉM tem uma postura que cresce (começa em `char_h_frac~0.72`, sobe até um platô estável `~0.92`), e o v44 não pegou isso. Pior: a fórmula de proporção (`rhf`) também estava errada — esse vídeo é mais alto que largo (`Va=0.98`) e mais estreito que a caixa do Kronk (`1.038`), então é restrito por ALTURA (`rhf=1.0`), não pela fórmula `A/Va` que eu apliquei. As duas contas erradas juntas produziram uma escala absurdamente grande — no platô estável, o Kronk chegava a **260px** de altura (contra ~205px de alvo) e a cabeça cortava de vez. Recalculado do zero (platô estável + `rhf` correto): escala **1.303 → 1.02**. Validei ao longo de toda a animação (não só um ponto): nunca mais corta, e o platô bate bem com o alvo.
+
+**Achado 3 (bônus, achado numa varredura de segurança):** ao testar sistematicamente a posição da cabeça em TODAS as poses ajustadas nas últimas versões, achei que `pose-ragemorre` (morte em fúria) também tinha um corte pequeno (até -9.6px) bem na fase que eu tinha usado como referência no v44. Reduzida a escala (2.32→2.15) pra eliminar. `pose-avalanche` foi conferida e está OK (margem mínima de ~13-15px no pior instante, sem cortar).
+
+**Lição pra qualquer pose futura:** não basta medir altura/centro num único instante e assumir que vale pro vídeo inteiro — vários desses vídeos têm uma "postura crescendo" real (dramática, intencional) embutida, e só uma varredura ao longo de TODA a duração revela isso. A partir de agora, qualquer pose nova baseada num vídeo com movimento (não só idle parado) deve ser testada em múltiplos pontos do tempo, verificando explicitamente a posição da cabeça (não só altura relativa), antes de considerar validada.
+
+`BUILD_VERSION` foi pra `v46`.
+
 **Preciso da sua decisão:** quer que eu faça o reprocessamento por frame (mais trabalhoso, resolve de verdade, mas pode reduzir o efeito de "crescer" da transformação), ou prefere manter como está (o final combina perfeitamente com o rage idle, só o instante inicial do gatilho tem um salto)?
 
 **Próximos passos sugeridos** (não implementados ainda, aguardando confirmação): Camada 10 (poeira de impacto nos golpes) reusa a mesma infraestrutura de canvas já construída aqui — seria rápido de adicionar depois. Heat distortion (Camada 5) fica pra quando puder dar atenção ao ajuste fino que esse efeito específico pede.
