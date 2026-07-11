@@ -1,0 +1,2180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>As Quatro Vontades — Duelo na Boca Seca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sangue:#8b0000;
+    --sangue-claro:#b91c1c;
+    --dourado:#c9a227;
+    --dourado-claro:#e8c860;
+    --pedra:#3a3a3a;
+    --pedra-escura:#1a1512;
+    --osso:#e8e0d0;
+    --verde-hp:#4a7c2f;
+    --amarelo-hp:#c9a227;
+    --vermelho-hp:#8b0000;
+    --raiva:#a83c10;
+    --raiva-claro:#e8834a;
+    --foco:#3f7691;
+    --foco-claro:#8fcbe8;
+    --estamina:#7a8c1e;
+    --estamina-claro:#c4d94a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    background:#0a0807;
+    color:var(--osso);
+    font-family:'EB Garamond',serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100dvh;
+    padding:12px;
+    overflow:hidden;
+  }
+  .moldura{
+    width:100%;
+    max-width:640px;
+    background:var(--pedra-escura);
+    border:2px solid var(--pedra);
+    box-shadow:0 0 0 1px #000, 0 24px 60px rgba(0,0,0,.7), inset 0 0 80px rgba(0,0,0,.5);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ---------- CENA DE BATALHA ---------- */
+  .cena{
+    position:relative;
+    width:100%;
+    aspect-ratio:16/9;
+    background-image:url('bocaseca_v2.png');
+    background-size:cover;
+    background-position:center;
+    overflow:hidden;
+    border-bottom:2px solid #000;
+  }
+  .cena::after{
+    content:'';
+    position:absolute;inset:0;
+    background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.45) 100%);
+    pointer-events:none;
+  }
+
+  .lutador{
+    position:absolute;
+    filter:drop-shadow(0 8px 10px rgba(0,0,0,.6));
+    transition:transform .12s ease;
+    image-rendering:auto;
+  }
+  .lutador img, .lutador video, .lutador canvas{
+    position:absolute;
+    inset:0;
+    display:block;
+    width:100%;height:100%;
+    object-fit:contain;
+    object-position:bottom;
+    opacity:0;
+    transition:opacity .18s ease;
+  }
+  .lutador img.ativa, .lutador video.ativa, .lutador canvas.ativa{opacity:1;}
+  #kronk{
+    top:6%;
+    right:4%;
+    width:36%;
+    height:62%;
+    z-index:2;
+  }
+  #bryne{
+    bottom:6%;
+    left:12%;
+    width:30%;
+    height:92%;
+    z-index:3;
+  }
+
+  /* Efeitos de sangue (v31). Camada cheia (crítico) cobre a cena inteira;
+     camadas locais ficam posicionadas perto da cabeça/tronco de cada
+     personagem (onde o corte visualmente "conecta"), com tamanho menor.
+     Todas usam o MESMO pipeline de chroma key ao vivo dos vídeos de pose
+     (canvas + vídeo oculto + configurarEfeitosSangue()), só que sem
+     loop e sem troca de "pose" — é uma camada extra que aparece por cima
+     de tudo e se esconde sozinha quando o vídeo termina. */
+  .sangue-critico{
+    position:absolute; inset:0;
+    z-index:10;
+    pointer-events:none;
+    opacity:0;
+  }
+  .sangue-critico.ativa{ opacity:1; }
+  .sangue-critico canvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+  }
+  .sangue-corpo{
+    position:absolute;
+    z-index:6;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .05s ease;
+  }
+  .sangue-corpo.ativa{ opacity:1; }
+  .sangue-corpo canvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:contain;
+  }
+  /* Posição medida via DOM real na pose de dano de cada personagem (não estimada):
+     Kronk torso ~ x:77% y:30% da cena; Bryne torso ~ x:12% y:73% da cena. */
+  #sangue-corpo-kronk{ top:22%; left:69%; width:16%; height:16%; }
+  #sangue-corpo-bryne{ top:65%; left:5%; width:15%; height:15%; }
+
+  /* Correção de tamanho aparente do Kronk por pose (v20).
+     BUG CRÍTICO encontrado e corrigido na v20: da v14 até a v19, todo o
+     cálculo de escala usou A = 36/62 = 0.58 como "proporção da caixa
+     #kronk". Isso está ERRADO: width:36% e height:62% do #kronk são
+     relativos a dimensões DIFERENTES do .cena (que tem aspect-ratio:16/9,
+     não é quadrado!). A proporção real em pixels da caixa é
+     (0.36*16)/(0.62*9) = 1.03 — quase quadrada, bem diferente de 0.58
+     (bem mais estreita/alta). Usar o valor errado fez o cálculo achar que
+     quase todo vídeo "sobrava menos altura" do que realmente sobra,
+     inflando o scale necessário pra cada pose (esse é o motivo real do
+     "ficou gigante"/"saiu da tela" depois da v18/v19 — não era cache).
+     Refeito do zero com A correto (1.03) e revalidado com a mesma técnica
+     (frame real + chroma key simulado em Python + render fora do
+     navegador). Ver RESUMO_PROJETO_JOGO.md, "CORREÇÃO v20".
+  */
+  #kronk .pose-base{ transform:scale(1.02); transform-origin:center bottom; } /* v29: CONTINUIDADE -- o recorte anterior deixava 20px de folga entre os pés e a borda de baixo do quadro (3.6% da altura), bem mais que as outras poses (~0-2%), fazendo o Kronk "flutuar" um pouco no chão comparado às outras poses. Recortado rente aos pés (margem de 1px, igual às demais) */
+  #kronk .pose-ataque{ transform:scale(1.98); transform-origin:center bottom; } /* v27: CORREÇÃO -- a escala anterior (1.70) foi calculada usando a altura MÁXIMA da bbox ao longo da animação, mas esse máximo acontece só no instante em que a maça está erguida bem acima da cabeça (frame ~105, altura 0.965) -- isso NÃO é a altura do corpo do Kronk, é maça+corpo. Na postura neutra (parado, início/fim da animação, frames 0-15 e 115-135, bem estável em ~0.815-0.82) ele é bem mais baixo que esse pico. Calibrar pelo pico fazia o corpo dele ficar menor que o idle na maior parte do tempo. Recalculado usando a altura da postura NEUTRA (0.817) como referência -- agora o corpo bate com as outras poses o tempo todo; só a maça ultrapassa o alvo durante o golpe (esperado, natural) */ /* v30: achado o retângulo cinza -- o force_green.py (v26) só repintava de verde puro FORA de uma bbox retangular; a cor de fundo ORIGINAL da filmagem (dentro da bbox, nunca repintada) tinha score~57, só 2 pontos acima do HIGH=55 do jogo -- perto o bastante do limiar pra ruído de compressão VP9 empurrar pixels de volta pra semi-opaco. Corrigido com limpeza POR PIXEL (force_green_v2.py): usa o alpha calculado de verdade pra decidir o que é fundo, não uma caixa -- todo fundo (dentro ou fora de qualquer região) agora é verde puro, score~254, bem longe do limiar */
+  #kronk .pose-dano{ transform:scale(1.87); transform-origin:center bottom; } /* v26: remedida após a limpeza universal de fundo (a vinheta de canto do v25 estava inflando ligeiramente a medição de char_h_frac); escala ajustada de 1.81 pra 1.87 */
+  #bryne .pose-escudoquebra{ transform:scale(1.44); transform-origin:center bottom; } /* v39: CORREÇÃO -- a escala anterior (0.81) foi calculada usando A=1.0323 (proporção da caixa do KRONK), mas a caixa da Bryne (#bryne) tem proporção BEM diferente (medida via DOM: 0.583, não 1.0323 -- as caixas deles têm width/height% bem diferentes). Isso fazia rhf sair errado e a escala ficar pequena demais. Recalculado com a proporção real da caixa dela (0.583) */
+  #bryne .pose-ataqueultimate{ transform:scale(1.47); transform-origin:center bottom; } /* v39: mesma correção do pose-escudoquebra -- escala recalculada com a proporção real da caixa da Bryne (0.583), não a do Kronk (1.0323) */
+  #kronk .pose-rageataque{ transform:scale(1.89); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto um problema mais sério que a escala: o recorte anterior (v27) estava DESCENTRALIZADO horizontalmente -- o centro médio do CORPO (medido só nos frames parados, sem a maça) ficava em 62.6% da largura do recorte, não 50%. Isso quebrava a continuidade visual ao trocar de pose (o Kronk "pulava" de lugar). Recalculado o recorte centralizado no corpo de verdade (crop=940:696:130:24, cobrindo toda a amplitude da maça erguida sem cortar nada), novo centro-x = 50.0%. A escala subiu (1.49→1.89) porque o recorte ficou mais largo pra caber a maça simetricamente dos dois lados do corpo centralizado */ /* v30: mesmo fix do pose-ataque -- limpeza por pixel (force_green_v2.py) em cima do fundo original que tinha score perto do limiar */
+  #kronk .pose-avalanche{ transform:scale(1.98); transform-origin:center bottom; } /* v40: pose dedicada do Avalanche (kronkultimate.mp4, 240 frames/10s). Vídeo tem grande variação de altura (postura neutra ~0.60-0.74 no início, pico de ~1.0 durante o golpe erguido no meio, assentando em ~0.81 no final) -- calibrado pela postura ASSENTADA final (frames 175-235, média 0.8123), não pelo pico, mesma lição do pose-ataque/pose-rageataque. Sem recorte (o balanço já usa quase o quadro todo, como o kronkattack). Validado por comparação direta (DOM) contra pose-dano já aprovada */
+  #kronk .pose-ragedano{ transform:scale(1.17); transform-origin:center bottom; } /* v26: sem mudança de escala, limpeza universal de fundo aplicada por segurança extra dentro do recorte já feito no v25 */
+  #kronk .pose-defesa{ transform:scale(1.00); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto que o recorte do v22 (aprovado na época pela qualidade da chave, mas nunca medido pra centralização/contato com o chão) tinha 68px de folga até o chão (9.4% da altura) e estava 12.6% fora do centro horizontal -- exatamente os mesmos dois problemas que achei e corrigi no rageataque nesta rodada. Como o rage idle é a pose de DESCANSO pra onde todas as outras poses de fúria voltam, essa inconsistência quebrava a continuidade visual toda vez que uma pose trocava pra/da rage idle. Recortado rente ao chão e centralizado no corpo (crop=704:654:64:0 sobre o vídeo já processado), preservando a mesma qualidade de chave do v22 (chroma_sim confirma buracos residuais == fundo real, não personagem) */
+  #kronk .pose-entrarage{ transform:scale(1.91); transform-origin:center bottom; } /* v28: vídeo REGERADO pelo usuário (kronkentersrage.mp4) e reprocessado do zero -- ver RESUMO v28 pra detalhes da pré-chave adaptativa por frame que resolveu o "chroma muda de cor" (na verdade um fade-to-black + vinheta variável). Escala calibrada pela postura FINAL/assentada da transição (que deve bater com o rageidle logo em seguida), não pela postura inicial (ainda normal) */
+  #kronk .pose-ragetonormal{ transform:scale(1.91); transform-origin:center bottom; } /* v28: gerado invertendo os frames do pose-entrarage já corrigido (mesmo vídeo, mesma escala) */
+  #kronk .pose-pressao{ transform:scale(1.03); transform-origin:center bottom; }
+  #kronk .pose-ragepressao{ transform:scale(1.04); transform-origin:center bottom; } /* v26: sem mudança de escala, limpeza universal de fundo aplicada por segurança extra dentro do recorte já feito no v25 */
+
+  /* Descoberta ao vivo (v16): quando um vídeo do Kronk demora pra carregar
+     (rede lenta, ou muitos vídeos concorrendo no primeiro carregamento da
+     página), o jogo troca pra uma imagem estática de fallback (ex.:
+     kronkrage.png) — e essa imagem NÃO tinha nenhum ajuste de tamanho,
+     então enquanto o vídeo real (com a escala calibrada acima) mostra um
+     tamanho, o fallback aparece bem MAIOR (todas as imagens de fallback têm
+     a mesma proporção ~0.667, o que renderiza a ~87% da altura da caixa —
+     bem mais que o vídeo já reduzido do ataque/fúria). Isso explica os
+     relatos contraditórios de tamanho ("ficou gigante" numa hora, "ficou
+     pequeno" logo depois) — provavelmente eram o fallback e o vídeo
+     alternando, não um problema real de escala. Ajustado o fallback de cada
+     pose problemática pra ficar próximo do tamanho do vídeo correspondente.
+  */
+  #kronk .pose-ataque-fallback{ transform:scale(0.70); transform-origin:center bottom; }
+  #kronk .pose-ragedano-fallback{ transform:scale(0.71); transform-origin:center bottom; }
+  #kronk .pose-entrarage-fallback{ transform:scale(0.50); transform-origin:center bottom; }
+  #kronk .pose-ragetonormal-fallback{ transform:scale(0.49); transform-origin:center bottom; }
+
+  .lutador.golpeado{animation:tremer .35s ease;}
+  @keyframes tremer{
+    0%,100%{transform:translateX(0);}
+    20%{transform:translateX(-7px) rotate(-1deg);}
+    40%{transform:translateX(6px) rotate(1deg);}
+    60%{transform:translateX(-4px);}
+    80%{transform:translateX(3px);}
+  }
+  .lutador.atacando{transform:translateY(-6px) scale(1.04);}
+
+  /* ---------- EFEITOS DE IMPACTO ---------- */
+  .impacto{
+    position:absolute;
+    z-index:7;
+    pointer-events:none;
+    width:120px;height:120px;
+    margin:-60px 0 0 -60px;
+    background:radial-gradient(circle, rgba(255,240,200,.95) 0%, rgba(255,150,60,.6) 30%, transparent 70%);
+    opacity:0;
+    animation:flashImpacto .4s ease-out;
+  }
+  @keyframes flashImpacto{
+    0%{opacity:0;transform:scale(.3);}
+    25%{opacity:1;transform:scale(1);}
+    100%{opacity:0;transform:scale(1.5);}
+  }
+  .slash{
+    position:absolute;
+    z-index:7;
+    pointer-events:none;
+    width:140px;height:8px;
+    margin:-4px 0 0 -70px;
+    background:linear-gradient(90deg, transparent, #fff 30%, #ffe27a 50%, #fff 70%, transparent);
+    border-radius:50%;
+    opacity:0;
+    animation:slashCorte .35s ease-out;
+  }
+  @keyframes slashCorte{
+    0%{opacity:0;transform:scaleX(.2) rotate(-35deg);}
+    40%{opacity:1;transform:scaleX(1) rotate(-35deg);}
+    100%{opacity:0;transform:scaleX(1.1) rotate(-35deg);}
+  }
+
+  /* ---------- CAIXAS DE HP ---------- */
+  .hpbox{
+    position:absolute;
+    z-index:5;
+    background:linear-gradient(165deg, rgba(28,21,15,.96), rgba(9,6,4,.98));
+    border:1px solid #4a3a24;
+    border-radius:2px;
+    padding:3px 7px 4px;
+    min-width:112px;
+    box-shadow:0 4px 14px rgba(0,0,0,.65), inset 0 0 0 1px rgba(201,162,39,.28), inset 0 0 16px rgba(0,0,0,.55);
+  }
+  .hpbox::before,.hpbox::after{
+    content:'';
+    position:absolute;
+    width:7px;height:7px;
+    border:1px solid var(--dourado);
+    opacity:.55;
+    pointer-events:none;
+  }
+  .hpbox::before{top:-1px;left:-1px;border-right:none;border-bottom:none;}
+  .hpbox::after{bottom:-1px;right:-1px;border-left:none;border-top:none;}
+  #hp-kronk{top:70%;right:5%;}
+  #hp-bryne{top:18%;left:11%;}
+  .hpbox .nome{
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:10.5px;
+    letter-spacing:.9px;
+    color:var(--dourado-claro);
+    text-transform:uppercase;
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:2px;
+    text-shadow:0 1px 2px rgba(0,0,0,.8);
+  }
+  .hpbox .faixa{font-size:7px;letter-spacing:.4px;color:#8a7a55;font-family:'Cinzel',serif;font-weight:400;}
+  .hp-trilho{
+    height:7px;
+    background:#000;
+    border:1px solid #4a3f2a;
+    border-radius:1px;
+    overflow:hidden;
+    position:relative;
+  }
+  .hp-preenche{
+    height:100%;
+    width:100%;
+    background:var(--verde-hp);
+    transition:width .55s cubic-bezier(.4,0,.2,1), background .4s;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2), inset 0 -3px 6px rgba(0,0,0,.4);
+  }
+  .hp-num{
+    text-align:right;
+    font-family:'Cinzel',serif;
+    font-size:8.5px;
+    color:var(--osso);
+    margin-top:1px;
+    letter-spacing:.5px;
+  }
+  /* Recursos secundários: Raiva (Kronk) e Foco (Bryne) -- barra bem fina, sem label
+     de texto (o nome/descrição vive no title nativo do navegador ao passar o mouse),
+     só pra não engordar a caixa mais do que o necessário. */
+  .rec-linha{
+    margin-top:2px;
+  }
+  .rec-trilho{
+    height:3.5px;
+    background:#000;
+    border:1px solid #3a2f1f;
+    border-radius:1px;
+    overflow:hidden;
+  }
+  .rec-preenche{height:100%;width:0%;transition:width .4s ease;}
+  .raiva-preenche{background:linear-gradient(180deg,var(--raiva-claro),var(--raiva));box-shadow:inset 0 1px 0 rgba(255,255,255,.25);}
+  .foco-preenche{background:linear-gradient(180deg,var(--foco-claro),var(--foco));box-shadow:inset 0 1px 0 rgba(255,255,255,.25);}
+  .estamina-preenche{background:linear-gradient(180deg,var(--estamina-claro),var(--estamina));box-shadow:inset 0 1px 0 rgba(255,255,255,.25);}
+  .rec-trilho.cheio{animation:pulsarPronto 1.15s ease-in-out infinite;}
+  @keyframes pulsarPronto{
+    0%,100%{box-shadow:0 0 3px 1px rgba(232,200,96,.35);}
+    50%{box-shadow:0 0 9px 2px rgba(232,200,96,.85);}
+  }
+  /* estados ativos (pílulas), logo abaixo de cada hpbox */
+  .estados{
+    position:absolute;
+    z-index:5;
+    display:flex;
+    gap:4px;
+    flex-wrap:wrap;
+    max-width:44%;
+  }
+  #est-kronk{top:calc(70% + 46px);right:5%;justify-content:flex-end;}
+  #est-bryne{top:calc(18% + 51px);left:11%;}
+  .pilula{
+    position:relative;
+    font-family:'Cinzel',serif;
+    font-size:9px;
+    font-weight:600;
+    letter-spacing:.5px;
+    padding:2px 7px;
+    border-radius:10px;
+    background:rgba(139,0,0,.85);
+    color:var(--osso);
+    border:1px solid rgba(232,200,96,.4);
+    white-space:nowrap;
+    cursor:help;
+  }
+  .pilula.bom{background:rgba(74,124,47,.85);}
+  .pilula.frio{background:rgba(40,60,90,.85);}
+  .pilula.ruim{background:rgba(139,0,0,.85);}
+  /* tooltip explicativo ao passar o mouse (mesmo padrão visual do .h-tip das habilidades) */
+  .pilula-tip{
+    position:absolute;
+    top:calc(100% + 8px);
+    left:50%;
+    transform:translateX(-50%) translateY(-6px);
+    width:max-content;
+    max-width:200px;
+    background:#0a0806;
+    border:1px solid var(--dourado);
+    border-radius:4px;
+    padding:7px 10px;
+    font-family:'EB Garamond',serif;
+    font-size:11.5px;
+    line-height:1.4;
+    color:var(--osso);
+    box-shadow:0 6px 20px rgba(0,0,0,.8);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .15s, transform .15s;
+    z-index:30;
+    text-align:left;
+    white-space:normal;
+  }
+  .pilula-tip::after{
+    content:'';
+    position:absolute;
+    bottom:100%;
+    left:50%;
+    transform:translateX(-50%);
+    border:6px solid transparent;
+    border-bottom-color:var(--dourado);
+  }
+  .pilula:hover .pilula-tip{opacity:1;transform:translateX(-50%) translateY(0);}
+  #est-bryne .pilula-tip{left:0;transform:translateX(0) translateY(-6px);}
+  #est-bryne .pilula:hover .pilula-tip{transform:translateX(0) translateY(0);}
+  #est-bryne .pilula-tip::after{left:14px;transform:none;}
+  /* Kronk: pílulas ficam perto da borda direita -- tooltip centralizado (padrão)
+     vazava pra fora da .cena (texto cortado). Ancora pela direita, espelhando
+     o fix já feito pro lado da Bryne. */
+  #est-kronk .pilula-tip{left:auto;right:0;transform:translateX(0) translateY(-6px);}
+  #est-kronk .pilula:hover .pilula-tip{transform:translateX(0) translateY(0);}
+  #est-kronk .pilula-tip::after{left:auto;right:14px;transform:none;}
+
+  /* ---------- NÚMEROS FLUTUANTES ---------- */
+  .flutua{
+    position:absolute;
+    z-index:8;
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:30px;
+    pointer-events:none;
+    animation:subir 1.05s ease-out forwards;
+    text-shadow:0 2px 4px #000, 0 0 12px rgba(0,0,0,.8);
+  }
+  .flutua.dano{color:#ff5b4a;}
+  .flutua.cura{color:#7be07b;}
+  .flutua.erro{color:#bcb39a;font-size:22px;}
+  .flutua.crit{color:#ffd24a;font-size:40px;}
+  @keyframes subir{
+    0%{opacity:0;transform:translateY(0) scale(.6);}
+    18%{opacity:1;transform:translateY(-14px) scale(1.15);}
+    100%{opacity:0;transform:translateY(-58px) scale(1);}
+  }
+
+  /* ---------- MUTE ---------- */
+  #mute{
+    position:absolute;top:8px;right:8px;z-index:9;
+    width:34px;height:34px;
+    background:rgba(15,11,8,.85);
+    border:1px solid var(--pedra);
+    border-radius:2px;
+    color:var(--dourado);
+    font-size:16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:background .15s;
+    font-family:inherit;
+  }
+  #mute:hover{background:var(--pedra);}
+
+  /* ---------- LOG ---------- */
+  .log{
+    background:#0c0a08;
+    border-bottom:2px solid #000;
+    padding:10px 14px;
+    height:84px;
+    font-family:'Courier New',monospace;
+    font-size:12.5px;
+    line-height:1.55;
+    color:#9a9080;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    overflow:hidden;
+  }
+  .log .linha{opacity:0;animation:apareceLinha .3s ease forwards;}
+  .log .linha:last-child{color:var(--osso);}
+  .log .linha .acerto{color:var(--dourado-claro);}
+  .log .linha .ruim{color:#ff6b5a;}
+  .log .linha .dado{color:#8fb3ff;font-weight:bold;}
+  @keyframes apareceLinha{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ---------- INDICADOR DE TURNO ---------- */
+  .turno{
+    text-align:center;
+    font-family:'Cinzel',serif;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    padding:6px;
+    color:var(--dourado);
+    background:#100c09;
+    border-bottom:1px solid #000;
+    min-height:28px;
+  }
+
+  /* ---------- HABILIDADES ---------- */
+  .habilidades{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+    padding:11px;
+    background:linear-gradient(180deg,#161210,#0e0b09);
+  }
+  .hab{
+    background:linear-gradient(180deg,#2a211a,#1c1611);
+    border:1px solid #4a3a28;
+    border-radius:3px;
+    padding:13px 11px;
+    cursor:pointer;
+    text-align:center;
+    color:var(--osso);
+    font-family:inherit;
+    transition:transform .1s, border-color .15s, background .15s;
+    position:relative;
+  }
+  .hab:hover:not(:disabled){
+    border-color:var(--dourado);
+    background:linear-gradient(180deg,#342820,#221a13);
+    transform:translateY(-1px);
+  }
+  .hab:active:not(:disabled){transform:translateY(1px) scale(.99);}
+  .hab .h-nome{
+    font-family:'Cinzel',serif;
+    font-weight:600;
+    font-size:14px;
+    color:var(--dourado-claro);
+    display:block;
+  }
+  /* tooltip detalhado no hover */
+  .hab .h-tip{
+    position:absolute;
+    bottom:calc(100% + 8px);
+    left:50%;
+    transform:translateX(-50%) translateY(6px);
+    width:max-content;
+    max-width:230px;
+    background:#0a0806;
+    border:1px solid var(--dourado);
+    border-radius:4px;
+    padding:8px 11px;
+    font-size:12px;
+    line-height:1.45;
+    color:var(--osso);
+    box-shadow:0 6px 20px rgba(0,0,0,.8);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .15s, transform .15s;
+    z-index:30;
+    text-align:left;
+  }
+  .hab .h-tip::after{
+    content:'';
+    position:absolute;
+    top:100%;
+    left:50%;
+    transform:translateX(-50%);
+    border:6px solid transparent;
+    border-top-color:var(--dourado);
+  }
+  .hab .h-tip b{color:var(--dourado-claro);font-family:'Cinzel',serif;}
+  .hab:hover .h-tip,
+  .hab.mostrar-tip .h-tip{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+  /* Grid de 2 colunas: tooltip centralizado vaza da tela em telas estreitas.
+     Coluna esquerda ancora o balão à esquerda do botão, direita à direita.
+     Cobre tanto :hover (desktop) quanto .mostrar-tip (toque em mobile). */
+  .habilidades .hab:nth-child(odd):not(.postura):not(.especial):not(.hab-voltar) .h-tip{
+    left:0; transform:translateX(0) translateY(6px);
+  }
+  .habilidades .hab:nth-child(odd):not(.postura):not(.especial):not(.hab-voltar):hover .h-tip,
+  .habilidades .hab:nth-child(odd):not(.postura):not(.especial):not(.hab-voltar).mostrar-tip .h-tip{
+    transform:translateX(0) translateY(0);
+  }
+  .habilidades .hab:nth-child(odd):not(.postura):not(.especial):not(.hab-voltar) .h-tip::after{
+    left:24px; transform:none;
+  }
+  .habilidades .hab:nth-child(even):not(.postura):not(.especial):not(.hab-voltar) .h-tip{
+    left:auto; right:0; transform:translateX(0) translateY(6px);
+  }
+  .habilidades .hab:nth-child(even):not(.postura):not(.especial):not(.hab-voltar):hover .h-tip,
+  .habilidades .hab:nth-child(even):not(.postura):not(.especial):not(.hab-voltar).mostrar-tip .h-tip{
+    transform:translateX(0) translateY(0);
+  }
+  .habilidades .hab:nth-child(even):not(.postura):not(.especial):not(.hab-voltar) .h-tip::after{
+    left:auto; right:24px; transform:none;
+  }
+  .hab.armado{
+    border-color:var(--dourado)!important;
+    background:linear-gradient(180deg,#403020,#2a1f14)!important;
+    box-shadow:0 0 0 2px rgba(201,162,39,.4);
+  }
+  .hab.especial{
+    grid-column:1 / -1;
+    border-color:var(--sangue);
+    background:linear-gradient(180deg,#3a1410,#24100c);
+  }
+  .hab.especial .h-nome{color:#ff7a5a;}
+  .hab.especial:hover:not(:disabled){border-color:var(--sangue-claro);background:linear-gradient(180deg,#4a1812,#2e120d);}
+  .hab.especial .h-tip{border-color:var(--sangue-claro);}
+  .hab.especial .h-tip::after{border-top-color:var(--sangue-claro);}
+  .hab:disabled{
+    opacity:.4;
+    cursor:not-allowed;
+    filter:grayscale(.6);
+  }
+  .hab .recarga{
+    position:absolute;top:5px;right:8px;
+    font-family:'Cinzel',serif;font-size:10px;color:var(--sangue-claro);font-weight:700;
+  }
+  .hab .recarga.pronto{color:var(--foco-claro);text-shadow:0 0 6px rgba(143,203,232,.7);}
+  .hab.postura{grid-column:1/-1;}
+  .hab.mira{border-color:var(--dourado);}
+  .hab-voltar{
+    grid-column:1/-1;
+    background:transparent;
+    border:1px dashed #4a3a28;
+    color:#8a7a55;
+    font-family:'Cinzel',serif;
+    font-size:12px;
+    padding:8px;
+    cursor:pointer;
+  }
+  .hab-voltar:hover{color:var(--osso);border-color:var(--dourado);}
+  .tip-foco{color:var(--foco-claro)!important;}
+
+  /* ---------- CUTSCENE DE ULTIMATE ---------- */
+  .cutscene-ultimate{
+    position:absolute;inset:0;z-index:16;
+    background:#000;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .18s ease;
+    overflow:hidden;
+  }
+  .cutscene-ultimate.ativa{opacity:1;}
+  .cutscene-ultimate img{
+    position:absolute;inset:0;
+    width:100%;height:100%;
+    object-fit:cover;
+    opacity:0;
+    transform:scale(1.04);
+    transition:opacity .35s ease .1s, transform .9s ease .1s;
+  }
+  .cutscene-ultimate.ativa img{opacity:1;transform:scale(1);}
+  .cutscene-titulo{
+    position:relative;
+    z-index:1;
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:clamp(20px,5vw,34px);
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:var(--dourado-claro);
+    text-shadow:0 0 14px rgba(0,0,0,.9), 0 0 28px rgba(201,162,39,.5);
+    opacity:0;
+    transform:translateY(8px);
+    transition:opacity .3s ease .35s, transform .3s ease .35s;
+  }
+  .cutscene-ultimate.ativa .cutscene-titulo{opacity:1;transform:translateY(0);}
+
+  /* ---------- TELA FINAL ---------- */
+  .fim{
+    position:absolute;inset:0;z-index:20;
+    background:rgba(8,6,5,.94);
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:24px;
+    animation:fadeFim .8s ease;
+  }
+  @keyframes fadeFim{from{opacity:0;}to{opacity:1;}}
+  .fim h2{
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:24px;
+    letter-spacing:2px;
+    margin-bottom:14px;
+    text-transform:uppercase;
+  }
+  .fim.vitoria h2{color:var(--dourado-claro);}
+  .fim.derrota h2{color:var(--sangue-claro);}
+  .fim p{
+    font-size:16px;font-style:italic;color:#bcb39a;
+    max-width:340px;margin-bottom:24px;line-height:1.5;
+  }
+  .fim button{
+    font-family:'Cinzel',serif;font-weight:600;font-size:14px;letter-spacing:1px;
+    background:linear-gradient(180deg,#2a211a,#1c1611);
+    border:1px solid var(--dourado);
+    color:var(--dourado-claro);
+    padding:12px 28px;border-radius:3px;cursor:pointer;
+    transition:background .15s;text-transform:uppercase;
+  }
+  .fim button:hover{background:var(--pedra);}
+
+  .moldura.abala{animation:abalo .4s ease;}
+  @keyframes abalo{
+    0%,100%{transform:translate(0,0);}
+    25%{transform:translate(-3px,2px);}
+    50%{transform:translate(3px,-2px);}
+    75%{transform:translate(-2px,-1px);}
+  }
+
+  @media (max-width:480px){
+    body{padding:0;}
+    .moldura{max-width:100%;height:100dvh;border:none;justify-content:space-between;}
+    .hpbox{min-width:128px;padding:5px 8px 7px;}
+    .hpbox .nome{font-size:11px;}
+    .hab .h-nome{font-size:12.5px;}
+    .hab .h-desc{font-size:10.5px;}
+    .log{height:74px;font-size:11.5px;}
+  }
+</style>
+</head>
+<body>
+<div class="moldura" id="moldura">
+
+  <div class="cena" id="cena">
+    <button id="mute" aria-label="Silenciar música">♪</button>
+
+    <div class="hpbox" id="hp-kronk">
+      <div class="nome"><span>Kronk</span><span class="faixa">veterano</span></div>
+      <div class="hp-trilho"><div class="hp-preenche" id="bar-kronk"></div></div>
+      <div class="hp-num" id="num-kronk">80 / 80</div>
+      <div class="rec-linha" title="Raiva: sobe quando Kronk leva dano, desce quando ele não pressiona Bryne. Cheia libera a Fúria.">
+        <div class="rec-trilho" id="trilho-raiva"><div class="rec-preenche raiva-preenche" id="bar-raiva"></div></div>
+      </div>
+    </div>
+
+    <div class="hpbox" id="hp-bryne">
+      <div class="nome"><span>Bryne</span><span class="faixa">lendária</span></div>
+      <div class="hp-trilho"><div class="hp-preenche" id="bar-bryne"></div></div>
+      <div class="hp-num" id="num-bryne">65 / 65</div>
+      <div class="rec-linha" title="Foco: sobe quando Bryne acerta Kronk, desce quando ela leva dano. Cheio libera A Lâmina.">
+        <div class="rec-trilho" id="trilho-foco"><div class="rec-preenche foco-preenche" id="bar-foco"></div></div>
+      </div>
+      <div class="rec-linha" title="Estamina: regenera um pouco a cada turno. Estocada e A Lâmina custam mais do que regenera por turno.">
+        <div class="rec-trilho" id="trilho-estamina"><div class="rec-preenche estamina-preenche" id="bar-estamina"></div></div>
+      </div>
+    </div>
+
+    <div class="estados" id="est-kronk"></div>
+    <div class="estados" id="est-bryne"></div>
+
+    <div class="sangue-critico" id="sangue-critico">
+      <canvas data-video="bloodcritico.webm"></canvas>
+    </div>
+    <div class="sangue-corpo" id="sangue-corpo-kronk">
+      <canvas data-video="bloodnormal.webm"></canvas>
+    </div>
+    <div class="sangue-corpo" id="sangue-corpo-bryne">
+      <canvas data-video="bloodnormal.webm"></canvas>
+    </div>
+
+    <div class="lutador" id="kronk">
+      <canvas class="pose-base ativa" data-video="kronkidle_v29.webm"></canvas>
+      <img class="pose-base-fallback" src="kronk.png" alt="Kronk">
+      <canvas class="pose-ataque" data-video="kronkattack_v30.webm"></canvas>
+      <img class="pose-ataque-fallback" src="kronkataca.png" alt="Kronk atacando">
+      <canvas class="pose-pressao" data-video="kronkpressao_normal.webm"></canvas>
+      <img class="pose-pressao-fallback" src="kronkataca.png" alt="Kronk pressionando">
+      <canvas class="pose-ragepressao" data-video="kronkinragepressure_clean_v26.webm" data-rage="1"></canvas>
+      <img class="pose-ragepressao-fallback" src="kronkrage.png" alt="Kronk enfurecido pressionando">
+      <canvas class="pose-defesa" data-video="kronkrageidle_v29.webm" data-rage="1"></canvas>
+      <img class="pose-defesa-fallback" src="kronkrage.png" alt="Kronk enfurecido">
+      <canvas class="pose-dano" data-video="kronkbeenhit_clean_v26.webm"></canvas>
+      <img class="pose-dano-fallback" src="kronkbeenhit.png" alt="Kronk ferido">
+      <canvas class="pose-rageataque" data-video="kronkrageattack_v30.webm" data-rage="1"></canvas>
+      <img class="pose-rageataque-fallback" src="kronkrage.png" alt="Kronk enfurecido atacando">
+      <canvas class="pose-avalanche" data-video="kronkavalanche.webm" data-rage="1"></canvas>
+      <img class="pose-avalanche-fallback" src="kronkrage.png" alt="Kronk desferindo Avalanche">
+      <canvas class="pose-ragedano" data-video="kronkinragebeenhit_clean_v26.webm" data-rage="1"></canvas>
+      <img class="pose-ragedano-fallback" src="kronkrage.png" alt="Kronk enfurecido ferido">
+      <canvas class="pose-entrarage" data-video="kronkentersrage_v28.webm" data-rage="1"></canvas>
+      <img class="pose-entrarage-fallback" src="kronkrage.png" alt="Kronk entrando em fúria">
+      <canvas class="pose-ragetonormal" data-video="kronkragetonormal_v28.webm"></canvas>
+      <img class="pose-ragetonormal-fallback" src="kronk.png" alt="Kronk saindo da fúria">
+    </div>
+    <div class="lutador" id="bryne">
+      <canvas class="pose-base ativa" data-video="bryne_idle_norm.webm"></canvas>
+      <img class="pose-base-fallback" src="bryne.png" alt="Bryne">
+      <canvas class="pose-ataque" data-video="bryneataque_idle_norm.webm"></canvas>
+      <img class="pose-ataque-fallback" src="bryneataca.png" alt="Bryne atacando">
+      <canvas class="pose-ataqueultimate" data-video="bryneataqueultimate.webm"></canvas>
+      <img class="pose-ataqueultimate-fallback" src="bryneataca.png" alt="Bryne desferindo A Lâmina">
+      <canvas class="pose-entradadefesa" data-video="bryneentra_defesa_norm.webm"></canvas>
+      <img class="pose-entradadefesa-fallback" src="brynedefende.png" alt="Bryne entrando em defesa">
+      <canvas class="pose-defesa" data-video="bryne_defesa_loop_norm.webm"></canvas>
+      <img class="pose-defesa-fallback" src="brynedefende.png" alt="Bryne defendendo">
+      <canvas class="pose-contraataque" data-video="brynecontraataque_norm.webm"></canvas>
+      <img class="pose-contraataque-fallback" src="bryneataca.png" alt="Bryne contra-atacando">
+      <canvas class="pose-ataquedadefesa" data-video="bryneataque_defesa_norm.webm"></canvas>
+      <img class="pose-ataquedadefesa-fallback" src="bryneataca.png" alt="Bryne atacando da defesa">
+      <canvas class="pose-dano" data-video="brynedano_idle_norm.webm"></canvas>
+      <img class="pose-dano-fallback" src="brynebeenhit.png" alt="Bryne ferida">
+      <canvas class="pose-danodefesa" data-video="brynedano_defesa_norm.webm"></canvas>
+      <img class="pose-danodefesa-fallback" src="brynebeenhit.png" alt="Bryne ferida na defesa">
+      <canvas class="pose-escudoquebra" data-video="escudoquebra.webm"></canvas>
+      <img class="pose-escudoquebra-fallback" src="brynebeenhit.png" alt="Escudo de Bryne se estilhaçando">
+    </div>
+
+    <div class="cutscene-ultimate" id="cutscene-ultimate">
+      <img id="cutscene-img" src="" alt="">
+      <div class="cutscene-titulo" id="cutscene-titulo"></div>
+    </div>
+
+    <div class="fim" id="fim">
+      <h2 id="fim-titulo"></h2>
+      <p id="fim-texto"></p>
+      <button id="reiniciar">Lutar de novo</button>
+    </div>
+  </div>
+
+  <div class="turno" id="turno">A Boca Seca espera. Toque uma ação.</div>
+
+  <div class="log" id="log"></div>
+
+  <div class="habilidades" id="habilidades"></div>
+
+</div>
+
+<audio id="bgm" loop preload="auto"></audio>
+
+<script>
+"use strict";
+
+/* ====================================================================
+   AS QUATRO VONTADES — DUELO NA BOCA SECA
+   Bryne (jogador) vs Kronk (IA) — sistema D20
+   ==================================================================== */
+
+const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+// Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
+// o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
+const BUILD_VERSION = 'v41';
+function cb(url){ return url + '?' + BUILD_VERSION; }
+document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
+const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
+const DELAY_IMPACTO_KRONK = 2800; // Kronk: a maça só desce perto do fim do vídeo
+const ESCUDO_MAX = 22; // vida do escudo na postura de Parede de Escudos (Bryne)
+const CUTSCENE_DURATION = 1000; // ms que a arte de ultimate fica na tela antes de cortar pro ataque
+
+/* Cutscene de ultimate (v34): fade pra preto -> arte cinematográfica em tela cheia ->
+   nome da habilidade -> som metálico -> corta pro ataque normal. Chama callback()
+   quando termina, pra quem chamou prosseguir com a resolução real do ataque. */
+// Pré-carrega as duas artes de ultimate assim que o jogo abre, pra troca de
+// <img src> na cutscene ser instantânea (sem isso, o navegador podia manter
+// a imagem ANTERIOR visível por um instante enquanto a nova ainda carrega —
+// dava a impressão de "ver a arte errada" por uma fração de segundo).
+const cutscenePreload = {
+  bryne: Object.assign(new Image(), {src:'bryneULTIMATE.jpg'}),
+  kronk: Object.assign(new Image(), {src:'kronkinrageULTIMATE.jpg'}),
+};
+
+function tocarCutsceneUltimate(quem, nomeHab, callback){
+  const overlay = document.getElementById('cutscene-ultimate');
+  const img = document.getElementById('cutscene-img');
+  const titulo = document.getElementById('cutscene-titulo');
+  const src = quem==='bryne' ? 'bryneULTIMATE.jpg' : 'kronkinrageULTIMATE.jpg';
+  img.src = src;
+  titulo.textContent = nomeHab;
+  overlay.classList.add('ativa');
+  som('metalico');
+  setTimeout(()=>{
+    overlay.classList.remove('ativa');
+    callback();
+  }, CUTSCENE_DURATION);
+}
+
+const d20 = () => Math.floor(Math.random()*20)+1;
+const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
+
+let S; // estado global
+
+function novoEstado(){
+  return {
+    bryne:{hp:65,max:65,atk:3,foco:0,focoMax:100,estamina:100,estaminaMax:100},
+    kronk:{hp:80,max:80,atk:4,defBase:11,_emRage:false,raiva:0,raivaMax:100,escudoAlvoHP:0},
+    ef:{
+      terreno:false,   // Bryne: próximo ataque inimigo com desvantagem + contra-ataque se errar
+      leitura:false,   // Bryne: próximo ataque dela com vantagem
+      paredeAtiva:false,// Bryne: postura de escudo (substitui o antigo "reduz 6 de dano")
+      preso:false,     // Bryne presa: próximo ataque de Kronk acerta automático
+      furia:0,         // Kronk: turnos restantes de fúria (+2 dano, def 9)
+      avalancheUsada:false, // Avalanche só 1x por ativação de Fúria
+      peso:false,      // Kronk: se Bryne atacar e errar, contra-ataca 6
+      atordoa:false,   // Bryne perde o próximo turno
+      atordoaKronk:false, // Kronk perde o próximo turno (escudo quebrado por ele mesmo -- reservado)
+      macaCD:0,        // recarga Maça para Cima
+      sangra:0,        // turnos de sangramento em Kronk (1d4/turno)
+      bracoFerido:0,   // turnos: ataques de Kronk causam -2 de dano
+      pernaFerida:0    // turnos: ataques de Kronk com -3 pra acertar
+    },
+    escudoHP:0,        // vida do escudo de Bryne enquanto ef.paredeAtiva
+    furiaCast:false,   // marca se Kronk lançou fúria neste turno (não decrementa)
+    over:false,
+    travado:false,
+    mira:false         // true enquanto o menu de Ataque Estratégico (braço/torso/perna) está aberto
+  };
+}
+
+/* ---------------- HABILIDADES DE BRYNE ---------------- */
+const CUSTO_ESTOCADA = 35;
+const CUSTO_LAMINA = 50;
+const CUSTO_PAREDE_ATIVAR = 40;
+const CUSTO_PAREDE_MANTER = 30;
+const GANHO_ESTAMINA_TURNO = 20;
+
+const habBryne = [
+  {id:'estocada', nome:'Estocada', custoEstamina:CUSTO_ESTOCADA, tip:`<b>Ataque básico</b><br>D20+3 vs DIF 11. Dano 4–7.<br><b class="tip-ruim">100% de chance</b> de causar sangramento (1d4/turno por 3 turnos).<br>Acertar concede <b class="tip-foco">+25 Foco</b>.<br>Custa <b class="tip-estamina">${CUSTO_ESTOCADA} de Estamina</b>.`, tipo:'normal'},
+  {id:'estrategico', nome:'Ataque Estratégico', custoEstamina:0, tip:'<b>Precisão tática</b><br>Escolha braço, torso ou perna. Torso causa mais dano; braço e perna são mais fracos mas aplicam um efeito tático no Kronk por 2 turnos.<br><b class="tip-foco">Não custa Estamina</b>.', tipo:'normal'},
+  {id:'terreno', nome:'Usar o Terreno', custoEstamina:0, tip:'<b>Defensiva</b><br>Gasta o turno. O próximo ataque inimigo rola com desvantagem; se ele errar, Bryne contra-ataca causando 5 de dano.', tipo:'normal'},
+  {id:'leitura', nome:'Leitura de Combate', custoEstamina:0, tip:'<b>Preparação</b><br>Gasta o turno. Seu próximo ataque rola com vantagem (2 dados, melhor resultado).', tipo:'normal'},
+  {id:'parede', nome:'Parede de Escudos', custoEstamina:0, tip:`<b>Postura defensiva</b><br>Ergue um escudo com ${ESCUDO_MAX} de resistência própria. Enquanto ativa, todo dano vai pro escudo — Bryne fica protegida. Atacar ou usar qualquer outra habilidade abandona a postura. Se o escudo quebrar, Bryne fica atordoada.<br>Custa <b class="tip-estamina">${CUSTO_PAREDE_ATIVAR} de Estamina</b> pra erguer e <b class="tip-estamina">${CUSTO_PAREDE_MANTER}/turno</b> pra manter — não dá pra segurar pra sempre.`, tipo:'normal'},
+  {id:'lamina', nome:'A Lâmina', custoEstamina:CUSTO_LAMINA, tip:`<b>Ataque de precisão</b><br>D20+3 vs DIF 9. Crítico causa dano dobrado.<br>Requer <b class="tip-foco">Foco cheio</b> — consome todo o Foco ao usar.<br>Custa <b class="tip-estamina">${CUSTO_LAMINA} de Estamina</b>.`, tipo:'especial'}
+];
+
+/* Ataque Estratégico: sub-menu de mira (braço/torso/perna). Não consome o
+   turno até uma opção real ser escolhida. */
+const miraBryne = [
+  {id:'estrategico_braco', nome:'Braço', tip:'<b>Dano 3–5</b><br>Se acertar, Kronk causa <b>-2 de dano</b> por 2 turnos ("Braço Ferido").'},
+  {id:'estrategico_torso', nome:'Torso', tip:'<b>Dano 5–8</b><br>A opção mais segura — maior dano, sem efeito adicional.'},
+  {id:'estrategico_perna', nome:'Perna', tip:'<b>Dano 3–5</b><br>Se acertar, Kronk fica <b>impreciso</b> (-3 pra acertar) por 2 turnos ("Perna Ferida").'},
+];
+function abrirMira(){
+  if(S.over||S.travado) return;
+  S.mira = true;
+  renderHabs();
+}
+function fecharMira(){
+  S.mira = false;
+  renderHabs();
+}
+
+/* =====================================================================
+   FLUXO DE TURNO
+   ===================================================================== */
+function iniciarFasJogador(){
+  if(S.over) return;
+  S.bryne.estamina = clamp(S.bryne.estamina+20,0,S.bryne.estaminaMax);
+  updateHP();
+  if(S.ef.atordoa){
+    S.ef.atordoa=false;
+    setTurno('Bryne está presa — perde o turno.');
+    log('Bryne não consegue agir. <span class="ruim">Turno perdido.</span>');
+    renderEstados();
+    S.travado=true; renderHabs();
+    setTimeout(faseKronk, 1100);
+    return;
+  }
+  S.travado=false;
+  setTurno('Sua vez — escolha uma ação.');
+  renderHabs();
+}
+
+function jogadorAge(id){
+  if(S.over||S.travado) return;
+  S.travado=true; renderHabs();
+  setTurno('...');
+  const extra = (id==='lamina') ? CUTSCENE_DURATION : 0;
+  resolverBryne(id);
+  // o resultado pode vir com atraso (DELAY_IMPACTO, + cutscene se for ultimate); verifica fim depois disso
+  setTimeout(()=>{ if(verificarFim()) return; }, DELAY_IMPACTO+150+extra);
+  setTimeout(()=>{ if(!S.over) faseKronk(); }, 8300+extra);
+}
+
+function faseKronk(){
+  if(S.over) return;
+  setTurno('Kronk age...');
+  // Sangramento drena Kronk antes de ele agir
+  if(S.ef.sangra>0){
+    const d=Math.floor(Math.random()*4)+1; // 1d4
+    aplicarDanoKronk(d);
+    S.ef.sangra--;
+    poseDano('kronk');
+    dispararSangueKronk();
+    vozKronkLevouDano();
+    log(`Kronk sangra — <span class="ruim">${d}</span> de dano. (${S.ef.sangra} turno${S.ef.sangra===1?'':'s'} restante${S.ef.sangra===1?'':'s'})`);
+    floats('kronk',d,'dano');
+    renderEstados();
+    if(verificarFim()) return;
+  }
+  const escolha = escolherKronk();
+  if(escolha==='furia'){
+    tocarCutsceneUltimate('kronk','Fúria', ()=>{
+      const conectou = resolverKronk('furia');
+      finalizarTurnoKronk(conectou);
+    });
+    return;
+  }
+  const conectou = resolverKronk(escolha);
+  finalizarTurnoKronk(conectou);
+}
+
+function finalizarTurnoKronk(conectou){
+  // Raiva: decai quando Kronk não consegue pressionar Bryne (errou ou usou algo que não é ataque)
+  if(!conectou){
+    S.kronk.raiva = clamp(S.kronk.raiva-10,0,S.kronk.raivaMax);
+  }
+  // decrementos de duração (Kronk)
+  if(S.ef.furia>0 && !S.furiaCast) S.ef.furia--;
+  S.furiaCast=false;
+  if(S.ef.macaCD>0) S.ef.macaCD--;
+  if(S.ef.bracoFerido>0) S.ef.bracoFerido--;
+  if(S.ef.pernaFerida>0) S.ef.pernaFerida--;
+  renderEstados();
+  updateHP();
+  // verifica fim após o impacto atrasado; senão devolve o turno ao jogador
+  setTimeout(()=>{ if(verificarFim()) return; }, DELAY_IMPACTO_KRONK+150);
+  setTimeout(()=>{ if(!S.over) iniciarFasJogador(); }, DELAY_IMPACTO_KRONK+1800);
+}
+
+/* =====================================================================
+   RESOLUÇÃO — BRYNE
+   ===================================================================== */
+function defKronkAtual(){ return S.ef.furia>0 ? 9 : S.kronk.defBase; }
+
+function resolverBryne(id, cutscenePlayed){
+  if(id==='lamina' && !cutscenePlayed){
+    tocarCutsceneUltimate('bryne','A Lâmina', ()=>resolverBryne(id, true));
+    return;
+  }
+  const ef=S.ef;
+
+  // Escolher qualquer coisa != 'parede' abandona a postura de escudo imediatamente
+  if(ef.paredeAtiva && id!=='parede'){
+    ef.paredeAtiva=false; S.escudoHP=0;
+    log('Bryne abandona a postura de escudo pra agir.');
+  }
+
+  const ataques = {
+    estocada:          { nome:'ataca',           especial:false, dano:()=>clamp(Math.round(d20()/4)+2,4,7), dif:()=>defKronkAtual(),   parte:null },
+    lamina:            { nome:'desfere A Lâmina',especial:true,  dano:()=>Math.round(d20()/3)+3,             dif:()=>9,                 parte:null },
+    estrategico_torso: { nome:'mira o torso',    especial:false, dano:()=>clamp(Math.round(d20()/4)+3,5,8), dif:()=>defKronkAtual(),   parte:null },
+    estrategico_braco: { nome:'mira o braço',    especial:false, dano:()=>clamp(Math.round(d20()/4)+1,3,5), dif:()=>defKronkAtual()+1, parte:'braco' },
+    estrategico_perna: { nome:'mira a perna',    especial:false, dano:()=>clamp(Math.round(d20()/4)+1,3,5), dif:()=>defKronkAtual()+1, parte:'perna' },
+  };
+
+  if(ataques[id]){
+    const cfg = ataques[id];
+    if(id==='lamina'){
+      poseTemporariaCustom('bryne','ataqueultimate', 4000, ()=>'base'); // 96 frames/24fps
+    } else {
+      poseAtaque('bryne');
+    }
+    anim('bryne','atacando');
+    if(id==='lamina') S.bryne.foco = 0; // custo consumido ao usar (acerte ou erre)
+    const habInfo = habBryne.find(h=>h.id===id);
+    if(habInfo && habInfo.custoEstamina>0){
+      S.bryne.estamina = clamp(S.bryne.estamina-habInfo.custoEstamina,0,S.bryne.estaminaMax);
+      updateHP();
+    }
+
+    let r1=d20(), r2=d20(), rol;
+    if(ef.leitura){ rol=Math.max(r1,r2); ef.leitura=false; }
+    else { rol=r1; }
+    const total = rol + S.bryne.atk;
+    const crit = (rol===20);
+    const alvoDIF = cfg.dif();
+
+    if(crit || total>=alvoDIF){
+      let dano = cfg.dano();
+      if(crit) dano*=2;
+      setTimeout(()=>{
+        aplicarDanoKronk(dano);
+        if(id!=='lamina') S.bryne.foco = clamp(S.bryne.foco+25,0,S.bryne.focoMax);
+        poseDano('kronk');
+        dispararSangueKronk();
+        impacto('kronk','corte');
+        if(cfg.parte==='braco'){ ef.bracoFerido=2; log('O golpe atinge o braço — Kronk causa <span class="acerto">menos dano</span> por 2 turnos.'); }
+        if(cfg.parte==='perna'){ ef.pernaFerida=2; log('O golpe atinge a perna — Kronk fica <span class="acerto">impreciso</span> por 2 turnos.'); }
+        if(crit){
+          som('critico'); somBryneHit(); vozBryneAtacou(); vozKronkLevouDano();
+          log(`<span class="acerto">CRÍTICO!</span> Bryne ${cfg.nome} — dano dobrado: <span class="ruim">${dano}</span>.`,'crit');
+          floats('kronk',dano,'crit');
+        } else {
+          som('ataque'); somBryneHit(); vozBryneAtacou(); vozKronkLevouDano();
+          log(`Bryne ${cfg.nome} — D20: <span class="dado">${rol}</span> → <span class="acerto">acertou</span>. Dano: ${dano}.`);
+          floats('kronk',dano,'dano');
+        }
+        if(id==='estocada'){
+          S.ef.sangra = 3;
+          log('A lâmina abre um corte — Kronk <span class="ruim">sangra</span> por 3 turnos.');
+        }
+        renderEstados(); updateHP();
+      }, DELAY_IMPACTO);
+    } else {
+      setTimeout(()=>{
+        som('erro'); somBryneMiss(); vozKronkRiu();
+        log(`Bryne ${cfg.nome} — D20: <span class="dado">${rol}</span> → <span class="ruim">errou</span>.`);
+        floats('kronk','errou','erro');
+        if(ef.peso){
+          ef.peso=false;
+          som('ataque'); somKronkHit(); vozBryneLevouDano();
+          poseAtaque('kronk');
+          log('Kronk usa o peso — <span class="ruim">contra-ataque: 6</span>.');
+          aplicarDanoBryne(6,true);
+          poseDano('bryne');
+          dispararSangueBryne();
+          floats('bryne',6,'dano');
+          anim('bryne','golpeado'); abalar();
+        }
+        renderEstados(); updateHP();
+      }, DELAY_IMPACTO);
+    }
+  }
+  else if(id==='terreno'){
+    ef.terreno=true;
+    poseDefesa('bryne');
+    som('buff');
+    log('Bryne lê o terreno e se posiciona. Inimigo atacará em <span class="acerto">desvantagem</span>.');
+    setTurno('Terreno tomado.');
+  }
+  else if(id==='leitura'){
+    ef.leitura=true;
+    poseDefesa('bryne');
+    som('buff');
+    log('Bryne estuda os movimentos. Próximo ataque com <span class="acerto">vantagem</span>.');
+  }
+  else if(id==='parede'){
+    if(!ef.paredeAtiva){
+      ef.paredeAtiva=true;
+      S.escudoHP=ESCUDO_MAX;
+      S.bryne.estamina = clamp(S.bryne.estamina-CUSTO_PAREDE_ATIVAR,0,S.bryne.estaminaMax);
+      poseDefesa('bryne');
+      som('buff');
+      log(`Bryne ergue o escudo (<span class="acerto">${ESCUDO_MAX}</span> de resistência) e assume a postura defensiva.`);
+    } else {
+      S.bryne.estamina = clamp(S.bryne.estamina-CUSTO_PAREDE_MANTER,0,S.bryne.estaminaMax);
+      poseDefesa('bryne');
+      log('Bryne mantém a posição atrás do escudo.');
+    }
+    updateHP();
+  }
+  renderEstados();
+}
+
+/* =====================================================================
+   RESOLUÇÃO — KRONK (IA)
+   ===================================================================== */
+function escolherKronk(){
+  const ef=S.ef;
+  const hpFrac = S.kronk.hp/S.kronk.max;
+  const macaPronta = ef.macaCD===0;
+  const furiaPronta = S.kronk.raiva>=S.kronk.raivaMax;
+  const bryneBaixa = S.bryne.hp < 20;
+
+  // Em fúria: golpe mais forte do jogo, prioridade alta enquanto disponível
+  if(ef.furia>0 && !ef.avalancheUsada && Math.random()<0.7) return 'avalanche';
+
+  // Modo desesperado
+  if(hpFrac<=0.30){
+    if(furiaPronta && ef.furia<=0 && S.kronk.hp<S.kronk.max) return 'furia';
+    if(macaPronta) return 'maca';
+    return 'macada';
+  }
+  // Acabar com Bryne se ela estiver baixa
+  if(bryneBaixa && macaPronta) return 'maca';
+  if(bryneBaixa) return ef.preso?'macada':'garrar'; // prender e fechar
+
+  // Modo normal — pesos
+  const r=Math.random();
+  if(furiaPronta && ef.furia<=0 && r<0.35) return 'furia';
+  if(r<0.55) return 'macada';
+  if(r<0.75) return 'garrar';
+  if(r<0.90) return 'peso';
+  return macaPronta ? 'maca' : 'macada';
+}
+
+function resolverKronk(id){
+  const ef=S.ef;
+
+  if(id==='furia'){
+    S.kronk.hp = clamp(S.kronk.hp+10,0,S.kronk.max);
+    ef.furia=3; ef.avalancheUsada=false; S.furiaCast=true; S.kronk.raiva=0;
+    // transição pra fúria: toca a animação de transformação uma vez e
+    // assenta na pose de rage-idle (em vez de cortar direto pro rage-idle)
+    S.kronk._emRage = true;
+    poseTemporariaCustom('kronk','entrarage', 6250, ()=>'defesa'); // v28: 150 frames/24fps (era 6875/165 -- video regerado sem o fade-to-black indevido, ver RESUMO v28)
+    som('cura');
+    tocar('kronkragescream1.mp3', VOL_VOZ);
+    log('Kronk explode em <span class="ruim">FÚRIA</span>. <span class="acerto">+10 vida</span>, mais força — mas fica exposto.');
+    floats('kronk',10,'cura');
+    updateHP();
+    renderEstados();
+    return false; // não pressionou Bryne neste turno -> Raiva não é reabastecida
+  }
+  if(id==='peso'){
+    ef.peso=true;
+    poseAtaque('kronk','peso'); // mesma animação de pressão do Garrar
+    som('buff');
+    log('Kronk avança como pedra. Se Bryne atacar e errar, <span class="ruim">paga caro</span>.');
+    renderEstados();
+    return false;
+  }
+
+  // ataques: macada, garrar, maca, avalanche
+  poseAtaque('kronk', id);
+  anim('kronk','atacando');
+  const bonusFuria = ef.furia>0 ? 2 : 0;
+  let nome, alvoDIF;
+  if(id==='macada'){ nome='ergue a maça'; alvoDIF=14; }
+  else if(id==='garrar'){ nome='agarra'; alvoDIF=12; }
+  else if(id==='avalanche'){ nome='desfere AVALANCHE'; alvoDIF=15; ef.avalancheUsada=true; }
+  else { nome='Maça para Cima'; alvoDIF=14; ef.macaCD=2; }
+  // Perna Ferida (Ataque Estratégico de Bryne): Kronk perde precisão
+  if(ef.pernaFerida>0) alvoDIF += 3;
+
+  let acertou,rol,crit=false;
+  if(ef.preso && id!=='garrar'){
+    // preso: acerta automático (não vale para o próprio garrar que aplicaria de novo)
+    acertou=true; rol='—'; ef.preso=false;
+    log('Bryne está presa — o golpe acerta sem esquiva.');
+  } else {
+    // desvantagem do Terreno
+    let a=d20(), b=d20();
+    rol = ef.terreno ? Math.min(a,b) : a;
+    crit = (rol===20);
+    const total = rol + S.kronk.atk;
+    acertou = crit || total>=alvoDIF;
+  }
+
+  setTimeout(()=>{
+    if(acertou){
+      let dano;
+      if(id==='macada'){ dano=clamp(Math.round(d20()/4)+3,5,8); }
+      else if(id==='garrar'){ const x=d20(); dano = x<=7?3 : x<=14?4 : 5; ef.preso=true; }
+      else if(id==='avalanche'){ dano = crit ? 19 : clamp(Math.round(d20()/3)+11,15,19); }
+      else { dano = crit ? 11 : clamp(Math.round(d20()/3)+5,8,11); }
+      dano += bonusFuria;
+      if(crit && id!=='garrar' && id!=='avalanche') dano = (id==='maca') ? dano : dano*2;
+      else if(crit && id==='avalanche') dano = Math.round(dano*1.5); // já é o golpe mais forte; dobrar seria demais
+      // Braço Ferido (Ataque Estratégico de Bryne): Kronk causa menos dano
+      if(ef.bracoFerido>0) dano = Math.max(1,dano-2);
+
+      const foiParede = ef.paredeAtiva;
+      aplicarDanoBryne(dano,false);
+      const escudoQuebrouAgora = foiParede && !ef.paredeAtiva;
+      if(!escudoQuebrouAgora) poseDano('bryne'); // escudo quebrando já tem a própria animação (ver aplicarDanoBryne)
+      if(!foiParede){ dispararSangueBryne(); if(crit) dispararSangueCritico(); }
+      impacto('bryne', foiParede?'escudo':'golpe');
+      anim('bryne','golpeado'); abalar();
+
+      if(foiParede){
+        som('bloqueio');
+        somKronkHit();
+        vozKronkAcertou();
+        log(`Kronk ${nome} — o golpe ecoa no <span class="acerto">escudo</span>. Dano: ${dano}.`);
+        floats('bryne',dano,'escudo');
+        if(escudoQuebrouAgora){
+          log('<span class="ruim">O escudo se estilhaça!</span> Bryne fica atordoada.');
+        }
+      } else if(crit){
+        som('critico');
+        somKronkHit();
+        vozKronkAcertou();
+        vozBryneLevouDano();
+        log(`<span class="ruim">CRÍTICO!</span> Kronk ${nome} — dano: ${dano}.`,'crit');
+        floats('bryne',dano,'crit');
+        if(id==='maca'){ ef.atordoa=true; log('O baque atordoa Bryne — ela <span class="ruim">perde o próximo turno</span>.'); }
+      } else {
+        som('ataque');
+        somKronkHit();
+        vozKronkAcertou();
+        vozBryneLevouDano();
+        const rolTxt = rol==='—' ? '—' : `<span class="dado">${rol}</span>`;
+        log(`Kronk ${nome} — D20: ${rolTxt} → <span class="ruim">acertou</span>. Dano: ${dano}.${id==='garrar'?' Bryne presa.':''}`);
+        floats('bryne',dano,'dano');
+      }
+    } else {
+      som('erro');
+      somKronkMiss();
+      log(`Kronk ${nome} — D20: <span class="dado">${rol}</span> → <span class="acerto">errou</span>.`);
+      floats('bryne','errou','erro');
+      if(ef.terreno){
+        som('ataque');
+        somBryneHit();
+        vozBryneAtacou();
+        vozKronkLevouDano();
+        poseContraataque();
+        log('Bryne aproveita a brecha — <span class="acerto">contra-ataque: 5</span>.');
+        aplicarDanoKronk(5);
+        S.bryne.foco = clamp(S.bryne.foco+25,0,S.bryne.focoMax);
+        updateHP();
+        poseDano('kronk');
+        dispararSangueKronk();
+        floats('kronk',5,'dano');
+        anim('kronk','golpeado');
+      } else {
+        vozBryneEsquivou();
+      }
+      // Bryne não tem mais animação de esquiva — permanece na pose atual (base ou defesa)
+    }
+    ef.terreno=false;
+    renderEstados();
+    if(verificarFim()) return;
+  }, DELAY_IMPACTO_KRONK);
+  return acertou;
+}
+
+/* =====================================================================
+   DANO / VIDA
+   ===================================================================== */
+function aplicarDanoKronk(d){
+  S.kronk.hp = clamp(S.kronk.hp-d,0,S.kronk.max);
+  S.kronk.raiva = clamp(S.kronk.raiva+18,0,S.kronk.raivaMax);
+  updateHP();
+}
+function aplicarDanoBryne(d,ignoraParede){
+  let dano=d;
+  if(S.ef.paredeAtiva && !ignoraParede){
+    S.escudoHP = Math.max(0, S.escudoHP-dano);
+    if(S.escudoHP<=0){
+      S.ef.paredeAtiva=false;
+      S.ef.atordoa=true;
+      poseTemporariaCustom('bryne','escudoquebra', 5667, ()=>'base'); // 136 frames/24fps
+    }
+    updateHP();
+    return; // dano vai todo pro escudo, Bryne não perde vida
+  }
+  S.bryne.foco = clamp(S.bryne.foco-15,0,S.bryne.focoMax);
+  S.bryne.hp = clamp(S.bryne.hp-dano,0,S.bryne.max);
+  updateHP();
+}
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+function updateHP(){
+  const bk=S.kronk.hp/S.kronk.max*100;
+  const bb=S.bryne.hp/S.bryne.max*100;
+  const barK=document.getElementById('bar-kronk');
+  const barB=document.getElementById('bar-bryne');
+  barK.style.width=bk+'%';
+  barB.style.width=bb+'%';
+  barK.style.background=corHP(bk);
+  barB.style.background=corHP(bb);
+  document.getElementById('num-kronk').textContent=`${S.kronk.hp} / ${S.kronk.max}`;
+  document.getElementById('num-bryne').textContent=`${S.bryne.hp} / ${S.bryne.max}`;
+
+  const barRaiva=document.getElementById('bar-raiva');
+  const trilhoRaiva=document.getElementById('trilho-raiva');
+  const raivaPct = S.kronk.raiva/S.kronk.raivaMax*100;
+  barRaiva.style.width=raivaPct+'%';
+  trilhoRaiva.classList.toggle('cheio', S.kronk.raiva>=S.kronk.raivaMax && S.ef.furia<=0);
+
+  const barFoco=document.getElementById('bar-foco');
+  const trilhoFoco=document.getElementById('trilho-foco');
+  const focoPct = S.bryne.foco/S.bryne.focoMax*100;
+  barFoco.style.width=focoPct+'%';
+  trilhoFoco.classList.toggle('cheio', S.bryne.foco>=S.bryne.focoMax);
+
+  const barEstamina=document.getElementById('bar-estamina');
+  const estaminaPct = S.bryne.estamina/S.bryne.estaminaMax*100;
+  barEstamina.style.width=estaminaPct+'%';
+}
+function corHP(p){
+  if(p>50) return 'var(--verde-hp)';
+  if(p>22) return 'var(--amarelo-hp)';
+  return 'var(--vermelho-hp)';
+}
+
+/* Descrição de cada status -- usada como tooltip (title nativo + balão
+   customizado) pra o jogador entender o que cada pílula significa sem
+   precisar adivinhar (ex.: passar o mouse em "Sangramento" ou "Presa"). */
+const descEstado = {
+  'Fúria':       'Kronk está enfurecido: +2 de dano em todos os ataques e defesa reduzida (9 em vez de 11). Tem acesso ao ataque Avalanche.',
+  'Sangra':      'Kronk sangra: perde 1d4 de vida no início de cada um dos seus turnos, até acabar a duração.',
+  'Peso':        'Kronk avançou com o peso do corpo: se Bryne atacar e errar agora, ele contra-ataca causando 6 de dano.',
+  'Maça CD':     'Maça para Cima está recarregando — Kronk não pode usá-la de novo ainda.',
+  'Braço Ferido':'O braço de Kronk foi atingido: seus ataques causam 2 de dano a menos até a duração acabar.',
+  'Perna Ferida':'A perna de Kronk foi atingida: fica com -3 pra acertar Bryne até a duração acabar.',
+  'Terreno':     'Bryne leu o terreno: o próximo ataque de Kronk rola com desvantagem. Se ele errar, ela contra-ataca causando 5 de dano.',
+  'Leitura':     'Bryne estudou os movimentos: seu próximo ataque rola com vantagem (2 dados, fica com o melhor resultado).',
+  'Escudo':      'Bryne está na postura de Parede de Escudos: todo dano recebido vai pro escudo em vez de sua vida. Atacar ou usar outra habilidade abandona a postura.',
+  'Presa':       'Bryne está presa pelo agarrão de Kronk: o próximo golpe dele acerta automaticamente, sem chance de esquiva.',
+};
+
+function renderEstados(){
+  const ek=document.getElementById('est-kronk');
+  const eb=document.getElementById('est-bryne');
+  ek.innerHTML=''; eb.innerHTML='';
+  const add=(cont,txt,cls,tituloTip)=>{
+    const s=document.createElement('span');
+    s.className='pilula '+(cls||'');
+    s.innerHTML = `<span class="pilula-txt">${txt}</span><span class="pilula-tip">${descEstado[tituloTip||txt]||''}</span>`;
+    cont.appendChild(s);
+  };
+  // Kronk
+  if(S.ef.furia>0) add(ek,'Fúria '+S.ef.furia,'ruim','Fúria');
+  if(S.ef.sangra>0) add(ek,'Sangra '+S.ef.sangra,'ruim','Sangra');
+  if(S.ef.peso) add(ek,'Peso','frio','Peso');
+  if(S.ef.macaCD>0) add(ek,'Maça '+S.ef.macaCD,'frio','Maça CD');
+  if(S.ef.bracoFerido>0) add(ek,'Braço Ferido '+S.ef.bracoFerido,'bom','Braço Ferido');
+  if(S.ef.pernaFerida>0) add(ek,'Perna Ferida '+S.ef.pernaFerida,'bom','Perna Ferida');
+  // Bryne
+  if(S.ef.terreno) add(eb,'Terreno','bom','Terreno');
+  if(S.ef.leitura) add(eb,'Leitura','bom','Leitura');
+  if(S.ef.paredeAtiva) add(eb,`Escudo ${S.escudoHP}/${ESCUDO_MAX}`,'bom','Escudo');
+  if(S.ef.preso) add(eb,'Presa','ruim','Presa');
+}
+
+function renderHabs(){
+  const cont=document.getElementById('habilidades');
+  cont.innerHTML='';
+
+  if(S.mira){
+    miraBryne.forEach(h=>{
+      const b=document.createElement('button');
+      b.className='hab mira';
+      b.disabled = S.travado || S.over;
+      b.innerHTML=`<span class="h-nome">${h.nome}</span><span class="h-tip">${h.tip}</span>`;
+      const acionar=()=>{ desbloquearAudio(); S.mira=false; jogadorAge(h.id); };
+      if(EH_TOUCH){
+        b.onclick=()=>{
+          if(b.classList.contains('armado')){ limparArmados(); acionar(); }
+          else { limparArmados(); b.classList.add('armado','mostrar-tip'); }
+        };
+      } else {
+        b.onclick=acionar;
+      }
+      cont.appendChild(b);
+    });
+    const voltar=document.createElement('button');
+    voltar.className='hab hab-voltar';
+    voltar.innerHTML='<span class="h-nome">‹ Voltar</span>';
+    voltar.onclick=fecharMira;
+    cont.appendChild(voltar);
+    return;
+  }
+
+  habBryne.forEach(h=>{
+    const b=document.createElement('button');
+    b.className='hab'+(h.tipo==='especial'?' especial':'')+(h.id==='parede'?' postura':'');
+    let selo='';
+    let disabled = S.travado || S.over;
+    const semEstamina = h.custoEstamina>0 && S.bryne.estamina < h.custoEstamina;
+    if(h.id==='lamina'){
+      if(S.bryne.foco < S.bryne.focoMax){ disabled=true; selo=`<span class="recarga">foco ${S.bryne.foco}/${S.bryne.focoMax}</span>`; }
+      else if(semEstamina){ disabled=true; selo='<span class="recarga">sem estamina</span>'; }
+      else { selo='<span class="recarga pronto">pronta!</span>'; }
+    } else if(h.id==='parede'){
+      const custoParede = S.ef.paredeAtiva ? CUSTO_PAREDE_MANTER : CUSTO_PAREDE_ATIVAR;
+      if(S.bryne.estamina < custoParede){ disabled=true; selo='<span class="recarga">sem estamina</span>'; }
+    } else if(semEstamina){
+      disabled=true; selo='<span class="recarga">sem estamina</span>';
+    }
+    let nomeExibido = h.nome;
+    if(h.id==='parede' && S.ef.paredeAtiva) nomeExibido = 'Manter Posição';
+    b.innerHTML=`${selo}<span class="h-nome">${h.id==='lamina'?'⚔ ':''}${nomeExibido}</span><span class="h-tip">${h.tip}</span>`;
+    b.disabled=disabled;
+
+    const acaoId = h.id==='estrategico' ? null : h.id;
+    if(EH_TOUCH){
+      // Mobile: 1º toque mostra tooltip e arma; 2º toque no mesmo botão executa
+      b.onclick=()=>{
+        if(b.classList.contains('armado')){
+          limparArmados();
+          desbloquearAudio();
+          if(acaoId) jogadorAge(acaoId); else abrirMira();
+        } else {
+          limparArmados();
+          b.classList.add('armado','mostrar-tip');
+        }
+      };
+    } else {
+      // Desktop: hover mostra tooltip, clique executa direto
+      b.onclick=()=>{ desbloquearAudio(); if(acaoId) jogadorAge(acaoId); else abrirMira(); };
+    }
+    cont.appendChild(b);
+  });
+}
+
+function limparArmados(){
+  document.querySelectorAll('.hab.armado, .hab.mostrar-tip')
+    .forEach(el=>el.classList.remove('armado','mostrar-tip'));
+}
+
+function setTurno(t){ document.getElementById('turno').textContent=t; }
+
+function log(html,extra){
+  const box=document.getElementById('log');
+  const d=document.createElement('div');
+  d.className='linha';
+  d.innerHTML=html;
+  box.appendChild(d);
+  while(box.children.length>4) box.removeChild(box.firstChild);
+}
+
+function floats(quem,valor,tipo){
+  const alvo=document.getElementById(quem);
+  const cena=document.getElementById('cena');
+  const f=document.createElement('div');
+  f.className='flutua '+tipo;
+  f.textContent = (tipo==='cura'?'+':'') + valor + (typeof valor==='number'?'':'');
+  const rect=alvo.getBoundingClientRect();
+  const cr=cena.getBoundingClientRect();
+  f.style.left=(rect.left-cr.left+rect.width*0.4)+'px';
+  f.style.top=(rect.top-cr.top+rect.height*0.25)+'px';
+  cena.appendChild(f);
+  setTimeout(()=>f.remove(),1100);
+}
+
+function anim(quem,cls){
+  const el=document.getElementById(quem);
+  el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+  setTimeout(()=>el.classList.remove(cls), cls==='atacando'?180:360);
+}
+
+// efeito visual de impacto sobre o alvo (flash + corte)
+function impacto(quem, tipo){
+  const alvo=document.getElementById(quem);
+  const cena=document.getElementById('cena');
+  const rect=alvo.getBoundingClientRect();
+  const cr=cena.getBoundingClientRect();
+  const cx = rect.left-cr.left+rect.width*0.5;
+  const cy = rect.top-cr.top+rect.height*0.42;
+  // flash
+  const fl=document.createElement('div');
+  fl.className='impacto';
+  fl.style.left=cx+'px'; fl.style.top=cy+'px';
+  cena.appendChild(fl);
+  setTimeout(()=>fl.remove(),400);
+  // corte (slash) — só em acertos de ataque
+  if(tipo==='corte'){
+    const sl=document.createElement('div');
+    sl.className='slash';
+    sl.style.left=cx+'px'; sl.style.top=cy+'px';
+    cena.appendChild(sl);
+    setTimeout(()=>sl.remove(),350);
+  }
+}
+
+/* ---- Sistema de poses (base / ataque / defesa) ---- */
+const timersPose = {kronk:null, bryne:null};
+const videoEndListeners = {kronk:null, bryne:null};
+
+function setPose(quem, pose){
+  const el=document.getElementById(quem);
+  el.querySelectorAll('img, canvas').forEach(m=>m.classList.remove('ativa'));
+  const cv = el.querySelector('canvas.pose-'+pose);
+  const fb = el.querySelector('.pose-'+pose+'-fallback');
+  if(cv && cv.dataset.falhou!=='1' && cv._vid){
+    cv.classList.add('ativa');
+    // se a pose tem variações, sorteia uma a cada ativação
+    if(cv.dataset.videoAlts){
+      const alts = cv.dataset.videoAlts.split(',');
+      const escolha = alts[Math.floor(Math.random()*alts.length)];
+      if(cv._vid.dataset.atual !== escolha){
+        cv._vid.src = escolha;
+        cv._vid.dataset.atual = escolha;
+      }
+    }
+    try{ cv._vid.currentTime=0; cv._vid.play().catch(()=>{}); }catch(e){}
+    return;
+  }
+  if(fb){ fb.classList.add('ativa'); return; }
+  const alvo = el.querySelector('.pose-'+pose);
+  if(alvo) alvo.classList.add('ativa');
+}
+
+// retorna a pose "de repouso" do personagem (defesa se algum buff ativo, senão base)
+// kronk: só a fúria muda a pose de repouso (pra rage-idle); "peso" é só uma
+// postura de ataque temporária (pose-pressao), não muda o idle
+function poseRepouso(quem){
+  const emDefesa = (quem==='bryne' && (S.ef.terreno||S.ef.leitura||S.ef.paredeAtiva))
+                || (quem==='kronk' && S.ef.furia>0);
+  return emDefesa ? 'defesa' : 'base';
+}
+
+// pose de retorno do Kronk após ataque/dano: se ele SAIU da fúria durante a
+// ação atual (furia decrementou a 0 no meio do turno), toca a transição
+// "ragetonormal" antes de assentar no idle normal, em vez de cortar direto
+// pra base. Retorna null pra sinalizar que a troca de pose já foi disparada
+// por conta própria (finalizar() não deve chamar setPose de novo por cima).
+function retornoKronk(){
+  if(S.kronk._emRage && S.ef.furia<=0){
+    S.kronk._emRage = false;
+    poseTemporariaCustom('kronk','ragetonormal', 6250, ()=>'base'); // v28: 150 frames/24fps (era 6875/165)
+    return null;
+  }
+  if(S.ef.furia>0) S.kronk._emRage = true;
+  return poseRepouso('kronk');
+}
+
+// limpa qualquer temporizador/listener pendente de uma troca de pose anterior
+function limparTrocaPendente(quem){
+  if(timersPose[quem]){ clearTimeout(timersPose[quem]); timersPose[quem]=null; }
+  if(videoEndListeners[quem]){
+    videoEndListeners[quem].vid.removeEventListener('ended', videoEndListeners[quem].fn);
+    if(videoEndListeners[quem].intervalId) clearInterval(videoEndListeners[quem].intervalId);
+    videoEndListeners[quem]=null;
+  }
+}
+
+// pose temporária que ao final chama computeReturnPose() (avaliado no momento da troca, não do disparo)
+// usa o evento real 'ended' do vídeo quando disponível (sincroniza com o vídeo de verdade,
+// não com um tempo chutado) — com um timer de segurança generoso caso 'ended' não dispare.
+function poseTemporariaCustom(quem, pose, dur, computeReturnPose){
+  limparTrocaPendente(quem);
+  setPose(quem, pose);
+  const el = document.getElementById(quem);
+  const cv = el.querySelector('canvas.pose-'+pose);
+
+  const finalizar = () => {
+    limparTrocaPendente(quem);
+    // se computeReturnPose() já disparou a própria troca de pose (ex.: uma
+    // transição), ele retorna null/false e não sobrescrevemos por cima
+    const proxima = computeReturnPose();
+    if(proxima) setPose(quem, proxima);
+  };
+
+  if(cv && cv._vid && cv.dataset.falhou!=='1'){
+    const vid = cv._vid;
+    let jaFinalizou = false;
+    const finalizarUmaVez = () => { if(!jaFinalizou){ jaFinalizou=true; finalizar(); } };
+    const onEnded = () => finalizarUmaVez();
+    vid.addEventListener('ended', onEnded, {once:true});
+    // sondagem: em alguns navegadores/codecs 'ended' não dispara mesmo com
+    // currentTime já igual à duração — então verificamos isso também, com
+    // margem mínima (bem menor que 1 frame a 24fps = 0.0417s) para não
+    // cortar os últimos quadros do vídeo (ex.: retorno natural à idle)
+    const intervalId = setInterval(()=>{
+      if(vid.ended || (vid.duration && vid.currentTime >= vid.duration - 0.02)){
+        clearInterval(intervalId);
+        finalizarUmaVez();
+      }
+    }, 30);
+    videoEndListeners[quem] = {vid, fn:onEnded, intervalId};
+    // rede de segurança generosa (1.6x a duração esperada) caso nada acima dispare
+    timersPose[quem] = setTimeout(finalizarUmaVez, (dur||2200)*1.6);
+  } else {
+    timersPose[quem] = setTimeout(finalizar, dur||2200);
+  }
+}
+function poseTemporaria(quem, pose, dur){
+  poseTemporariaCustom(quem, pose, dur, ()=>poseRepouso(quem));
+}
+
+// tipoOuId: usado só pelo Kronk, pra escolher a animação certa —
+// 'garrar'/'peso' usam a pose de pressão (mesma animação pros dois);
+// qualquer outra coisa usa a animação de ataque genérica. Em fúria, TODO
+// ataque (incluindo garrar/peso) usa a animação única de ataque em fúria.
+function poseAtaque(quem, tipoOuId){
+  if(quem==='kronk'){
+    const emRage = S.ef.furia>0;
+    S.kronk._emRage = emRage;
+    const usaPressao = (tipoOuId==='garrar' || tipoOuId==='peso');
+    let pose, dur;
+    if(tipoOuId==='avalanche'){ pose='avalanche'; dur=10000; }  // v40: 240 frames/24fps, pose dedicada (kronkultimate.mp4)
+    else if(emRage && usaPressao){ pose='ragepressao'; dur=4000; }  // 96 frames/24fps -- v24: pose nova, antes reusava rageataque
+    else if(emRage){ pose='rageataque'; dur=4000; }        // 96 frames/24fps
+    else if(usaPressao){ pose='pressao'; dur=4542; }       // 109 frames/24fps
+    else { pose='ataque'; dur=5833; }                      // v26: 140 frames/24fps (era 5708/137, valor desatualizado desde a troca de vídeo no v23 -- não causava bug visível pq o vídeo real manda via 'ended'/polling, mas estava incorreto)
+    poseTemporariaCustom('kronk', pose, dur, retornoKronk);
+    return;
+  }
+  // Bryne: ataque muda conforme ela já estar ou não em postura defensiva
+  // durações batem com o vídeo completo (96 frames=4000ms idle / 192 frames=8000ms da defesa, vídeo v2 já retorna sozinha ao idle no final)
+  const emDefesa = !!(S.ef.terreno||S.ef.leitura||S.ef.paredeAtiva);
+  const pose = emDefesa ? 'ataquedadefesa' : 'ataque';
+  poseTemporariaCustom('bryne', pose, emDefesa?8000:4000, ()=>'base'); // atacar sempre sai da guarda
+}
+
+// Bryne contra-ataca (gatilho específico de Usar o Terreno quando o inimigo erra)
+function poseContraataque(){
+  poseTemporariaCustom('bryne','contraataque', 6834, ()=>'base'); // vídeo completo (v3): 164 frames a 24fps=6834ms
+}
+
+function poseDano(quem){
+  if(quem==='bryne'){
+    const emDefesa = !!(S.ef.terreno||S.ef.leitura||S.ef.paredeAtiva);
+    const pose = emDefesa ? 'danodefesa' : 'dano';
+    // v39: duração real conferida via ffprobe -- dano idle=96 frames/24fps=4000ms;
+    // danodefesa=100 frames/25fps=4000ms (era 7000ms no código, nunca bateu com o
+    // arquivo real -- o 'ended' do vídeo sempre mandou de verdade, então não
+    // travava por causa disso, mas o timer de segurança ficava desnecessariamente
+    // longo caso 'ended' falhasse)
+    poseTemporariaCustom('bryne', pose, 4000, ()=>poseRepouso('bryne'));
+    return;
+  }
+  const emRage = S.ef.furia>0;
+  S.kronk._emRage = emRage;
+  const pose = emRage ? 'ragedano' : 'dano';
+  poseTemporariaCustom('kronk', pose, 4000, retornoKronk); // ambos 96 frames/24fps=4000ms
+}
+
+function poseDefesa(quem){
+  if(quem==='bryne'){
+    const el=document.getElementById('bryne');
+    const jaEmDefesa = el.querySelector('.pose-defesa.ativa') || el.querySelector('.pose-entradadefesa.ativa');
+    if(jaEmDefesa) return; // já entrando/em guarda — não repete a transição
+    limparTrocaPendente('bryne');
+    setPose('bryne','entradadefesa');
+    timersPose.bryne = setTimeout(()=>{
+      limparTrocaPendente('bryne');
+      setPose('bryne','defesa');
+    }, 1700);
+    return;
+  }
+  limparTrocaPendente(quem);
+  setPose(quem,'defesa');
+}
+
+function poseBase(quem){
+  limparTrocaPendente(quem);
+  setPose(quem,'base');
+}
+function abalar(){
+  const m=document.getElementById('moldura');
+  m.classList.remove('abala'); void m.offsetWidth; m.classList.add('abala');
+  setTimeout(()=>m.classList.remove('abala'),400);
+}
+
+/* =====================================================================
+   FIM DE JOGO
+   ===================================================================== */
+function verificarFim(){
+  if(S.kronk.hp<=0){ fimDeJogo(true); return true; }
+  if(S.bryne.hp<=0){ fimDeJogo(false); return true; }
+  return false;
+}
+function fimDeJogo(venceu){
+  S.over=true; S.travado=true;
+  renderHabs();
+  const fim=document.getElementById('fim');
+  fim.className='fim '+(venceu?'vitoria':'derrota');
+  fim.style.display='flex';
+  if(venceu){
+    som('vitoria');
+    document.getElementById('fim-titulo').textContent='Bryne vence';
+    document.getElementById('fim-texto').textContent='A Lâmina permanece de pé. A Boca Seca guarda seus mortos.';
+    setTurno('Fim do duelo.');
+  } else {
+    som('derrota');
+    document.getElementById('fim-titulo').textContent='Kronk vence';
+    document.getElementById('fim-texto').textContent='Kronk ficar de pé. Kronk ser o mais forte.';
+    setTurno('Fim do duelo.');
+  }
+}
+
+/* =====================================================================
+   ÁUDIO — Web Audio API (sintético) + BGM arquivo
+   ===================================================================== */
+let audioCtx=null, mutado=false, audioLiberado=false;
+
+function getCtx(){
+  if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function som(tipo){
+  if(mutado) return;
+  try{
+    const ctx=getCtx();
+    const t=ctx.currentTime;
+    const g=ctx.createGain();
+    g.connect(ctx.destination);
+
+    if(tipo==='ataque'){
+      // impacto seco — ruído + tonal
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.18,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,2.5);
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const filt=ctx.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=180; filt.Q.value=0.8;
+      src.connect(filt); filt.connect(g);
+      g.gain.setValueAtTime(0.6,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+      src.start(t);
+      // tonal punch
+      const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.setValueAtTime(80,t); osc.frequency.exponentialRampToValueAtTime(30,t+0.12);
+      const g2=ctx.createGain(); g2.gain.setValueAtTime(0.4,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.14);
+      osc.connect(g2); g2.connect(ctx.destination); osc.start(t); osc.stop(t+0.14);
+    }
+    else if(tipo==='critico'){
+      // impacto pesado em duas camadas
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.28,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.8);
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const filt=ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=300;
+      src.connect(filt); filt.connect(g);
+      g.gain.setValueAtTime(0.9,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.28);
+      src.start(t);
+      // sub-bass
+      const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.setValueAtTime(55,t); osc.frequency.exponentialRampToValueAtTime(20,t+0.22);
+      const g2=ctx.createGain(); g2.gain.setValueAtTime(0.7,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.22);
+      osc.connect(g2); g2.connect(ctx.destination); osc.start(t); osc.stop(t+0.22);
+      // crack agudo
+      const osc2=ctx.createOscillator(); osc2.type='sawtooth'; osc2.frequency.setValueAtTime(600,t); osc2.frequency.exponentialRampToValueAtTime(100,t+0.06);
+      const g3=ctx.createGain(); g3.gain.setValueAtTime(0.35,t); g3.gain.exponentialRampToValueAtTime(0.001,t+0.06);
+      osc2.connect(g3); g3.connect(ctx.destination); osc2.start(t); osc2.stop(t+0.06);
+    }
+    else if(tipo==='erro'){
+      // whoosh de vento — sweep descendente
+      const osc=ctx.createOscillator(); osc.type='sine';
+      osc.frequency.setValueAtTime(320,t); osc.frequency.exponentialRampToValueAtTime(60,t+0.22);
+      const g2=ctx.createGain(); g2.gain.setValueAtTime(0.0,t); g2.gain.linearRampToValueAtTime(0.25,t+0.04); g2.gain.exponentialRampToValueAtTime(0.001,t+0.22);
+      osc.connect(g2); g2.connect(ctx.destination); osc.start(t); osc.stop(t+0.22);
+    }
+    else if(tipo==='buff'){
+      // tom grave ascendente
+      const osc=ctx.createOscillator(); osc.type='sine';
+      osc.frequency.setValueAtTime(90,t); osc.frequency.linearRampToValueAtTime(180,t+0.18);
+      const g2=ctx.createGain(); g2.gain.setValueAtTime(0.3,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.28);
+      osc.connect(g2); g2.connect(ctx.destination); osc.start(t); osc.stop(t+0.28);
+    }
+    else if(tipo==='cura'){
+      // dois tons harmônicos suaves
+      [220,330].forEach((freq,i)=>{
+        const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=freq;
+        const g2=ctx.createGain(); g2.gain.setValueAtTime(0,t+i*0.06); g2.gain.linearRampToValueAtTime(0.18,t+i*0.06+0.04); g2.gain.exponentialRampToValueAtTime(0.001,t+i*0.06+0.3);
+        osc.connect(g2); g2.connect(ctx.destination); osc.start(t+i*0.06); osc.stop(t+i*0.06+0.3);
+      });
+    }
+    else if(tipo==='vitoria'){
+      // sequência ascendente: 4 notas
+      [261,329,392,523].forEach((freq,i)=>{
+        const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=freq;
+        const g2=ctx.createGain(); g2.gain.setValueAtTime(0.3,t+i*0.14); g2.gain.exponentialRampToValueAtTime(0.001,t+i*0.14+0.28);
+        osc.connect(g2); g2.connect(ctx.destination); osc.start(t+i*0.14); osc.stop(t+i*0.14+0.28);
+      });
+    }
+    else if(tipo==='derrota'){
+      // sequência descendente lenta
+      [261,220,174,130].forEach((freq,i)=>{
+        const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=freq;
+        const g2=ctx.createGain(); g2.gain.setValueAtTime(0.35,t+i*0.2); g2.gain.exponentialRampToValueAtTime(0.001,t+i*0.2+0.4);
+        osc.connect(g2); g2.connect(ctx.destination); osc.start(t+i*0.2); osc.stop(t+i*0.2+0.4);
+      });
+    }
+    else if(tipo==='metalico'){
+      // toque metálico de lâmina/aço — várias parciais inarmônicas (timbre metálico)
+      // + um "swoosh" de ruído filtrado por cima, pro golpe de ultimate
+      [523, 830, 1108, 1660].forEach((freq,i)=>{
+        const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=freq;
+        const g2=ctx.createGain();
+        const vol = 0.28/(i+1);
+        g2.gain.setValueAtTime(vol,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.9);
+        osc.connect(g2); g2.connect(ctx.destination); osc.start(t); osc.stop(t+0.9);
+      });
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.3,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.8);
+      const src=ctx.createBufferSource(); src.buffer=buf;
+      const filt=ctx.createBiquadFilter(); filt.type='highpass'; filt.frequency.value=2200;
+      const g3=ctx.createGain(); g3.gain.setValueAtTime(0.5,t); g3.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+      src.connect(filt); filt.connect(g3); g3.connect(ctx.destination); src.start(t);
+    }
+  } catch(e){}
+}
+
+/* =====================================================================
+   ÁUDIO DE ARQUIVO — vozes (alto) e sons mecânicos (baixo)
+   ===================================================================== */
+const VOL_VOZ = 0.7;
+const VOL_DOR_KRONK = 0.35;
+const VOL_MEC = 0.3; // sons mecânicos de ataque, mais baixos que as vozes
+
+// vozes
+const vozKronkAcerto = ['kronknaoterproximo.mp3','kronkmatartodos.mp3'];
+const vozKronkRi = 'kronkri.mp3';
+const vozKronkDor = ['kronkpain1.mp3','kronkpain2.mp3'];
+const vozBryneDor = ['brynepain1.mp3','brynepain2.mp3'];
+const vozBryneAtaque = ['brynattack1.mp3','bryneattack3.mp3']; // quando Bryne ACERTA
+const vozBryneEsquiva = ['bryneattack2.mp3','bryneesquiva3.mp3']; // quando Kronk erra
+
+// sons mecânicos (arquivo)
+const mecBryneHit = 'brynehit.mp3';
+const mecBryneMiss = 'brynemiss.mp3';
+const mecKronkHit = 'kronkhit.mp3';
+const mecKronkMiss = 'kronkmiss.mp3';
+
+function tocar(arquivo, vol){
+  if(mutado) return;
+  try{
+    const a = new Audio(cb(arquivo));
+    a.volume = (vol==null?VOL_VOZ:vol);
+    a.play().catch(()=>{});
+  }catch(e){}
+}
+function tocarAleat(lista, vol){ tocar(lista[Math.floor(Math.random()*lista.length)], vol); }
+
+// vozes
+function vozKronkAcertou(){ tocarAleat(vozKronkAcerto, VOL_VOZ); }
+function vozKronkRiu(){ tocar(vozKronkRi, VOL_VOZ); }
+function vozKronkLevouDano(){ tocarAleat(vozKronkDor, VOL_DOR_KRONK); }
+function vozBryneLevouDano(){ tocarAleat(vozBryneDor, VOL_VOZ); }
+function vozBryneAtacou(){ tocarAleat(vozBryneAtaque, VOL_VOZ); }
+function vozBryneEsquivou(){ tocarAleat(vozBryneEsquiva, VOL_VOZ); }
+// sons mecânicos
+function somBryneHit(){ tocar(mecBryneHit, VOL_MEC); }
+function somBryneMiss(){ tocar(mecBryneMiss, VOL_MEC); }
+function somKronkHit(){ tocar(mecKronkHit, VOL_MEC); }
+function somKronkMiss(){ tocar(mecKronkMiss, VOL_MEC); }
+
+function desbloquearAudio(){
+  if(audioLiberado) return;
+  const bgm=document.getElementById('bgm');
+  bgm.volume=0.15;
+  bgm.play().then(()=>{audioLiberado=true;}).catch(()=>{});
+  // acorda o contexto Web Audio junto
+  try{ getCtx().resume(); }catch(e){}
+}
+
+document.getElementById('mute').onclick=()=>{
+  const bgm=document.getElementById('bgm');
+  mutado=!mutado;
+  bgm.muted=mutado;
+  document.getElementById('mute').textContent = mutado?'♪̸':'♪';
+  document.getElementById('mute').style.color = mutado?'#6a5f45':'var(--dourado)';
+};
+
+/* =====================================================================
+   INÍCIO / REINÍCIO
+   ===================================================================== */
+function iniciar(){
+  S=novoEstado();
+  poseBase('kronk');
+  poseBase('bryne');
+  document.getElementById('fim').style.display='none';
+  document.getElementById('log').innerHTML='';
+  updateHP();
+  renderEstados();
+  log('O duelo começa. <span class="acerto">Bryne</span> contra <span class="ruim">Kronk</span>, na Boca Seca.');
+  iniciarFasJogador();
+}
+document.getElementById('reiniciar').onclick=()=>{ desbloquearAudio(); iniciar(); };
+
+// Mobile: tocar fora dos botões cancela o tooltip armado
+if(EH_TOUCH){
+  document.addEventListener('click',(e)=>{
+    if(!e.target.closest('.hab')) limparArmados();
+  });
+}
+
+/* --- Chroma key em tempo real (remove verde) para qualquer canvas com data-video --- */
+function configurarVideosIdle(){
+  document.querySelectorAll('.lutador canvas[data-video]').forEach(canvas=>{
+    const lutador = canvas.closest('.lutador');
+    // descobre o nome da pose pela classe (pose-base, pose-ataque, etc.)
+    const poseClasse = [...canvas.classList].find(c=>c.startsWith('pose-'));
+    const fallback = lutador.querySelector('.'+poseClasse+'-fallback');
+    // poses temporárias não fazem loop (tocam uma vez); idle/rage fazem loop
+    const ehLoop = (poseClasse==='pose-base' || poseClasse==='pose-defesa');
+    const ctx = canvas.getContext('2d', {willReadFrequently:true});
+
+    const vid = document.createElement('video');
+    vid.src = cb(canvas.dataset.video);
+    vid.dataset.atual = canvas.dataset.video;
+    vid.loop = ehLoop; vid.muted = true; vid.playsInline = true;
+    vid.setAttribute('playsinline','');
+    vid.preload = 'auto';
+    vid.crossOrigin = 'anonymous';
+    canvas._vid = vid;        // referência IMEDIATA (antes de qualquer setPose)
+    canvas._ehLoop = ehLoop;
+
+    let ok = false;
+
+    const usarFallback = ()=>{
+      if(canvas.classList.contains('ativa')){
+        canvas.classList.remove('ativa');
+        if(fallback) fallback.classList.add('ativa');
+      }
+      canvas.dataset.falhou='1';
+    };
+
+    let proc, pctx;
+
+    function loop(){
+      requestAnimationFrame(loop);
+      if(!ok) return;
+      if(!canvas.classList.contains('ativa')) return;
+      if(vid.readyState < 2 || !vid.videoWidth) return;
+      if(vid.paused && !vid.ended) vid.play().catch(()=>{});
+      if(!proc || proc.width!==vid.videoWidth){
+        proc = document.createElement('canvas');
+        proc.width = vid.videoWidth; proc.height = vid.videoHeight;
+        pctx = proc.getContext('2d', {willReadFrequently:true});
+        canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
+      }
+      pctx.drawImage(vid,0,0,proc.width,proc.height);
+      let frame;
+      try{ frame = pctx.getImageData(0,0,proc.width,proc.height); }
+      catch(e){ usarFallback(); return; }
+      const d = frame.data;
+      const W = proc.width, H = proc.height;
+      const n = W*H;
+      // buffers reaproveitados entre frames (evita realocar/GC toda hora)
+      if(!canvas._alphaBuf || canvas._alphaBuf.length!==n){
+        canvas._alphaBuf = new Float32Array(n);
+        canvas._integral = new Float64Array((W+1)*(H+1));
+      }
+      const alphaBuf = canvas._alphaBuf;
+      const integral = canvas._integral;
+
+      // 1ª passada: alpha CONTÍNUO (não é on/off) baseado em quão "verde de fundo"
+      // o pixel parece. Isso deixa bordas em movimento (ex: espada em golpe rápido,
+      // que se mistura opticamente com o fundo verde no motion blur) esmaecerem
+      // suavemente em vez de sumir de vez ou ficar um bloco sólido verde/cinza.
+      const LOW=15, HIGH=55; // faixa de transição (abaixo=opaco, acima=transparente)
+      for(let i=0, p=0; i<d.length; i+=4, p++){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        const score = Math.min(g-r, g-b); // quanto maior, mais "verde de fundo"
+        let a;
+        if(score<=LOW) a=255;
+        else if(score>=HIGH) a=0;
+        else a = 255*(1-(score-LOW)/(HIGH-LOW));
+        alphaBuf[p]=a;
+      }
+
+      // imagem integral (soma acumulada) do alpha, pra consultar a média de uma
+      // janela ao redor de cada pixel em O(1)
+      for(let y=0;y<H;y++){
+        let rowSum=0;
+        const rowBase=(y+1)*(W+1);
+        const prevRowBase=y*(W+1);
+        for(let x=0;x<W;x++){
+          rowSum += alphaBuf[y*W+x];
+          integral[rowBase+x+1] = integral[prevRowBase+x+1] + rowSum;
+        }
+      }
+      function mediaJanela(cx,cy,raio){
+        const x0=cx-raio<0?0:cx-raio, x1=cx+raio>=W?W-1:cx+raio;
+        const y0=cy-raio<0?0:cy-raio, y1=cy+raio>=H?H-1:cy+raio;
+        const A=integral[y0*(W+1)+x0], B=integral[y0*(W+1)+x1+1];
+        const C=integral[(y1+1)*(W+1)+x0], D=integral[(y1+1)*(W+1)+x1+1];
+        const area=(x1-x0+1)*(y1-y0+1);
+        return (D-B-C+A)/area;
+      }
+
+      // 2ª passada, duas janelas na MESMA imagem integral (praticamente de graça,
+      // é só mais uma consulta O(1) por pixel):
+      // - janela PEQUENA (raio 6): o alpha final vira a média da vizinhança
+      //   próxima. Fecha buraquinho isolado DENTRO da armadura (vizinhança
+      //   majoritariamente opaca puxa pra opaco) e deixa bordas em movimento
+      //   (espada em golpe rápido) esmaecerem suavemente.
+      // - janela GRANDE (raio 40): se a vizinhança BEM mais larga ao redor do
+      //   pixel é quase toda transparente, é sinal de que esse pixel está
+      //   isolado no meio do fundo de verdade (ex.: uma mancha grande e fraca
+      //   de verde desbotado bem longe da silhueta) — nesse caso força
+      //   transparente total, mesmo que a janela pequena sozinha não bastasse
+      //   pra zerar (a mancha pode ser maior que a janela pequena).
+      // Perto da silhueta real a janela grande sempre acha bastante opacidade
+      // por perto, então isso não mexe no corpo/espada.
+      for(let i=0, p=0; i<d.length; i+=4, p++){
+        const cx = p % W, cy = (p/W)|0;
+        const pequena = mediaJanela(cx,cy,6);
+        // usa o MAIOR entre o alpha bruto do próprio pixel e a média da vizinhança,
+        // em vez de substituir puro pela média. Isso evita que detalhes finos e
+        // isolados (fios de cabelo, franjas, tiras penduradas) sejam "diluídos" pra
+        // quase-transparente só por estarem cercados de muito fundo verde na janela
+        // 13x13 — mesmo quando o pixel em si já foi corretamente lido como opaco.
+        // A cicatrização de buraco (vizinhança majoritariamente opaca puxando um
+        // pixel isolado de fundo pra opaco) continua funcionando normalmente.
+        let final = Math.max(alphaBuf[p], pequena);
+        if(final>0){
+          const grande = mediaJanela(cx,cy,40);
+          if(grande<15) final = 0;
+        }
+        const r=d[i], g=d[i+1], b=d[i+2];
+        if(final>0 && g-b>10 && g-r>10){
+          // reflexo leve de verde em superfície clara/metálica — despill, mantém a cor mais neutra
+          d[i+1] = Math.round((r+b)/2);
+        }
+        d[i+3] = final<0?0:(final>255?255:final);
+      }
+      ctx.putImageData(frame,0,0);
+    }
+
+    vid.addEventListener('loadeddata', ()=>{ ok=true; });
+    vid.addEventListener('error', usarFallback);
+    loop();
+    if(ehLoop){ const p=vid.play(); if(p&&p.catch) p.catch(()=>{}); }
+
+    setTimeout(()=>{ if(!ok && !vid.videoWidth) usarFallback(); }, 6000);
+  });
+}
+configurarVideosIdle();
+
+/* --- Efeitos de sangue (v31): mesmo pipeline de chroma key ao vivo dos
+   vídeos de pose, mas pra camadas de efeito -- sem loop, sem fallback,
+   e a camada some sozinha quando o vídeo termina (mesmo padrão híbrido
+   ended+sondagem do poseTemporariaCustom, pro mesmo bug de 'ended' não
+   disparar em alguns navegadores/codecs webm). */
+function configurarEfeitosSangue(){
+  document.querySelectorAll('.sangue-critico canvas[data-video], .sangue-corpo canvas[data-video]').forEach(canvas=>{
+    const camada = canvas.closest('.sangue-critico, .sangue-corpo');
+    const ctx = canvas.getContext('2d', {willReadFrequently:true});
+    const vid = document.createElement('video');
+    vid.src = cb(canvas.dataset.video);
+    vid.loop = false; vid.muted = true; vid.playsInline = true;
+    vid.setAttribute('playsinline','');
+    vid.preload = 'auto';
+    vid.crossOrigin = 'anonymous';
+    canvas._vid = vid;
+    let ok = false;
+    let proc, pctx;
+
+    function loop(){
+      requestAnimationFrame(loop);
+      if(!ok) return;
+      if(!camada.classList.contains('ativa')) return;
+      if(vid.readyState < 2 || !vid.videoWidth) return;
+      if(!proc || proc.width!==vid.videoWidth){
+        proc = document.createElement('canvas');
+        proc.width = vid.videoWidth; proc.height = vid.videoHeight;
+        pctx = proc.getContext('2d', {willReadFrequently:true});
+        canvas.width = vid.videoWidth; canvas.height = vid.videoHeight;
+      }
+      pctx.drawImage(vid,0,0,proc.width,proc.height);
+      let frame;
+      try{ frame = pctx.getImageData(0,0,proc.width,proc.height); }
+      catch(e){ return; }
+      const d = frame.data;
+      const W = proc.width, H = proc.height;
+      const n = W*H;
+      if(!canvas._alphaBuf || canvas._alphaBuf.length!==n){
+        canvas._alphaBuf = new Float32Array(n);
+        canvas._integral = new Float64Array((W+1)*(H+1));
+      }
+      const alphaBuf = canvas._alphaBuf;
+      const integral = canvas._integral;
+      const LOW=15, HIGH=55;
+      for(let i=0, p=0; i<d.length; i+=4, p++){
+        const r=d[i], g=d[i+1], b=d[i+2];
+        const score = Math.min(g-r, g-b);
+        let a;
+        if(score<=LOW) a=255;
+        else if(score>=HIGH) a=0;
+        else a = 255*(1-(score-LOW)/(HIGH-LOW));
+        alphaBuf[p]=a;
+      }
+      for(let y=0;y<H;y++){
+        let rowSum=0;
+        const rowBase=(y+1)*(W+1);
+        const prevRowBase=y*(W+1);
+        for(let x=0;x<W;x++){
+          rowSum += alphaBuf[y*W+x];
+          integral[rowBase+x+1] = integral[prevRowBase+x+1] + rowSum;
+        }
+      }
+      function mediaJanela(cx,cy,raio){
+        const x0=cx-raio<0?0:cx-raio, x1=cx+raio>=W?W-1:cx+raio;
+        const y0=cy-raio<0?0:cy-raio, y1=cy+raio>=H?H-1:cy+raio;
+        const A=integral[y0*(W+1)+x0], B=integral[y0*(W+1)+x1+1];
+        const C=integral[(y1+1)*(W+1)+x0], D=integral[(y1+1)*(W+1)+x1+1];
+        const area=(x1-x0+1)*(y1-y0+1);
+        return (D-B-C+A)/area;
+      }
+      for(let i=0, p=0; i<d.length; i+=4, p++){
+        const cx = p % W, cy = (p/W)|0;
+        const pequena = mediaJanela(cx,cy,6);
+        let final = Math.max(alphaBuf[p], pequena);
+        if(final>0){
+          const grande = mediaJanela(cx,cy,40);
+          if(grande<15) final = 0;
+        }
+        const r=d[i], g=d[i+1], b=d[i+2];
+        if(final>0 && g-b>10 && g-r>10){
+          d[i+1] = Math.round((r+b)/2);
+        }
+        d[i+3] = final<0?0:(final>255?255:final);
+      }
+      ctx.putImageData(frame,0,0);
+    }
+    vid.addEventListener('loadeddata', ()=>{ ok=true; });
+    loop();
+  });
+}
+configurarEfeitosSangue();
+
+const sangueTimers = {};
+function dispararSangue(id){
+  const camada = document.getElementById(id);
+  if(!camada) return;
+  const canvas = camada.querySelector('canvas');
+  const vid = canvas && canvas._vid;
+  if(!vid) return;
+  if(sangueTimers[id]){
+    clearTimeout(sangueTimers[id].t);
+    clearInterval(sangueTimers[id].i);
+    vid.removeEventListener('ended', sangueTimers[id].onEnded);
+  }
+  camada.classList.add('ativa');
+  try{ vid.currentTime = 0; }catch(e){}
+  vid.play().catch(()=>{});
+  let jaFinalizou = false;
+  const finalizar = ()=>{
+    if(jaFinalizou) return;
+    jaFinalizou = true;
+    camada.classList.remove('ativa');
+    clearInterval(intervalId);
+    vid.removeEventListener('ended', onEnded);
+  };
+  const onEnded = ()=>finalizar();
+  vid.addEventListener('ended', onEnded, {once:true});
+  const intervalId = setInterval(()=>{
+    if(vid.ended || (vid.duration && vid.currentTime >= vid.duration - 0.02)) finalizar();
+  }, 30);
+  sangueTimers[id] = {t:setTimeout(finalizar, 6000), i:intervalId, onEnded};
+}
+function dispararSangueCritico(){ dispararSangue('sangue-critico'); }
+function dispararSangueKronk(){ dispararSangue('sangue-corpo-kronk'); }
+function dispararSangueBryne(){ dispararSangue('sangue-corpo-bryne'); }
+
+// retoma o play dos vídeos em loop no primeiro clique (autoplay bloqueado)
+document.addEventListener('click', ()=>{
+  document.querySelectorAll('.lutador canvas[data-video]').forEach(c=>{
+    if(c._vid && c._ehLoop && c._vid.paused){ c._vid.play().catch(()=>{}); }
+  });
+}, {once:true});
+
+iniciar();
+</script>
+</body>
+</html>
