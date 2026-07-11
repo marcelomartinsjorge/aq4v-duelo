@@ -1140,6 +1140,24 @@ Depois de discutir as camadas de imersão restantes (heat distortion ficou de fo
 
 `BUILD_VERSION` foi pra `v49`.
 
+---
+
+### 🔴 v50 — a causa raiz de verdade do entrarage: o vídeo-fonte corta a própria cabeça (não era escala)
+
+Usuário estava certo e apontou exatamente o problema: "falta a tampa da cabeça no último frame do vídeo entrarage" — não era questão de escala/posição, era o **vídeo-fonte em si** cortando a cabeça do Kronk pela própria filmagem.
+
+**Como confirmei:** em vez de medir só a altura/posição geral, olhei a FORMA do topo detectado nos últimos frames — uma cabeça real, mesmo cortada de raspão, afunila (poucos pixels de largura na pontinha). O que encontrei foi uma **faixa reta de 60-90px de largura tocando y=0**, a partir do frame 85 de 150 — a assinatura inconfundível de um corte de quadro, não uma silhueta natural. Esse corte durava até o frame 150: **quase 2.7 segundos, 43% do vídeo inteiro**, com a cabeça genuinamente sem pixels ali. Nenhuma escala ou reposicionamento por CSS podia consertar isso, porque a informação simplesmente não existe naquele trecho do arquivo.
+
+**Fix:** recortei o vídeo-fonte (não o CSS) pra parar ANTES do corte sustentado começar — mantendo só os frames 0-79 (`kronkentersrage_v29.webm`, era `_v28`). Verifiquei que o único outro momento em que algo toca y=0 dentro desse intervalo (frames 59-65) é um gesto breve de 0.29s que cresce e diminui suavemente — consistente com um punho erguido num gesto dramático, não um corte (a largura sobe e desce, não fica presa numa faixa reta). Apliquei o mesmo corte espelhado no `pose-ragetonormal` (`kronkragetonormal_v29.webm`, mantendo os últimos 80 dos 150 frames originais, que correspondem aos primeiros 80 do entrarage antes do corte).
+
+Recalculada a escala pelo NOVO frame final (agora bem mais curto): `char_h_frac=0.9673`, e o centro horizontal já veio naturalmente perto de 50% (0.508) — não precisou de `translateX` dessa vez. Duração atualizada de 6250ms (150 frames) pra 3333ms (80 frames) em todos os lugares do código que usavam esse número.
+
+**Validação:** medi a animação inteira de novo — a transição pro rage idle agora acontece em ~3.3s (era ~6.1s) e o tamanho bate muito bem com o rage idle assim que a troca acontece (206.5px contra uma faixa de 200-207px dele). Rodei a mega-varredura de segurança completa (todas as 13 poses, checando corte de cabeça na duração inteira de cada uma) e a regressão geral — tudo limpo, pior caso ainda positivo (+9.6px).
+
+`BUILD_VERSION` foi pra `v50`.
+
+**Lição pra qualquer vídeo novo:** quando o tamanho não bate mesmo depois de calibrar a escala certinho, a pergunta certa não é só "que escala uso", mas "os pixels que eu preciso REALMENTE existem no arquivo?" — vale a pena olhar a FORMA do contorno no topo/base/laterais (afunila naturalmente, ou é uma faixa reta?) antes de assumir que é só uma conta de escala errada.
+
 **Sendo direto sobre a troca feita:** essas 4 poses agora ficam visivelmente menores na postura "neutra" do que estavam antes — foi o preço de garantir que o pico do movimento (golpe erguido, queda) nunca corte. Não tem como ter as duas coisas (postura neutra do tamanho ideal E pico do movimento sem cortar) quando o vídeo-fonte tem uma amplitude de movimento tão grande — sempre que isso acontecer, vou priorizar "nunca corta" sobre "combina perfeito com as outras poses", já que corte é um bug visível na hora, enquanto uma diferença de tamanho é só uma imperfeição de continuidade.
 
 **Preciso da sua decisão:** quer que eu faça o reprocessamento por frame (mais trabalhoso, resolve de verdade, mas pode reduzir o efeito de "crescer" da transformação), ou prefere manter como está (o final combina perfeitamente com o rage idle, só o instante inicial do gatilho tem um salto)?

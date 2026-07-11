@@ -196,8 +196,8 @@
   #kronk .pose-avalanche{ transform:scale(1.725) translateX(7.6%); transform-origin:center bottom; } /* v47: CORREÇÃO -- varredura de 10s inteiros (não só a fase "assentada" testada antes) achou corte em t~6s: topo chegava a -34px. Reduzida a escala (2.142→1.725) e translateX recalculado proporcionalmente (6.12%→7.6%, mantendo o mesmo deslocamento efetivo). Sacrifica um pouco o encaixe com o resto do grupo fúria, mas elimina o corte */
   #kronk .pose-ragedano{ transform:scale(1.17); transform-origin:center bottom; } /* v26: sem mudança de escala, limpeza universal de fundo aplicada por segurança extra dentro do recorte já feito no v25 */
   #kronk .pose-defesa{ transform:scale(1.00); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto que o recorte do v22 (aprovado na época pela qualidade da chave, mas nunca medido pra centralização/contato com o chão) tinha 68px de folga até o chão (9.4% da altura) e estava 12.6% fora do centro horizontal -- exatamente os mesmos dois problemas que achei e corrigi no rageataque nesta rodada. Como o rage idle é a pose de DESCANSO pra onde todas as outras poses de fúria voltam, essa inconsistência quebrava a continuidade visual toda vez que uma pose trocava pra/da rage idle. Recortado rente ao chão e centralizado no corpo (crop=704:654:64:0 sobre o vídeo já processado), preservando a mesma qualidade de chave do v22 (chroma_sim confirma buracos residuais == fundo real, não personagem) */
-  #kronk .pose-entrarage{ transform:scale(1.80); transform-origin:center bottom; } /* v46: CORREÇÃO -- escala 1.91 deixava a cabeça sem margem nenhuma: o vídeo-fonte já tem o Kronk quase tocando o topo do PRÓPRIO quadro filmado no pico do crescimento (char_h_frac=0.9984 de 612px, <1px de sobra) -- bater o alvo de 0.9405 em cima disso não deixava folga nenhuma, e a cabeça cortava (relatado pelo usuário: "a cabeça não cabe na tela no fim"). Reduzida a escala pra dar margem de segurança de verdade, mesmo sacrificando um pouco a combinação perfeita com o rage idle */
-  #kronk .pose-ragetonormal{ transform:scale(1.80); transform-origin:center bottom; } /* v46: mesma correção do pose-entrarage (mesmo vídeo invertido, mesma escala) */
+  #kronk .pose-entrarage{ transform:scale(1.959); transform-origin:center bottom; } /* v50: CORREÇÃO DE VERDADE -- descoberto (graças à observação direta do usuário) que o problema nunca foi escala/posição: o VÍDEO-FONTE original (kronkentersrage_v28) tem a cabeça genuinamente cortada pela própria filmagem a partir do frame 85 de 150 (uma faixa RETA de 60-90px de largura tocando y=0, não uma silhueta afunilando -- assinatura clara de corte de quadro, não de gesto). Esse corte durava quase 2.7s (43% do vídeo!) e nenhum ajuste de CSS podia consertar, porque os pixels do topo da cabeça simplesmente não existem ali. Solução: vídeo RECORTADO (kronkentersrage_v29.webm) mantendo só os frames 0-79, antes do corte sustentado começar (o único momento em y=0 dentro dessa faixa, frames 59-65, é um gesto breve de 0.29s que cresce e diminui suavemente -- silhueta consistente com um punho erguido, não corte). Escala recalculada pelo NOVO frame final (79): char_h_frac=0.9673, centro já vem natural em 0.508 (não precisou de translateX dessa vez) */
+  #kronk .pose-ragetonormal{ transform:scale(1.959); transform-origin:center bottom; } /* v50: mesmo corte, no vídeo espelhado (kronkragetonormal_v29.webm) -- mantidos os frames 70-149 dos 150 originais (os últimos 80, que correspondem aos primeiros 80 do entrarage antes do corte, invertidos) */
   #kronk .pose-pressao{ transform:scale(1.03); transform-origin:center bottom; }
   #kronk .pose-ragepressao{ transform:scale(1.02); transform-origin:center bottom; } /* v46: CORREÇÃO GRAVE -- a correção do v44 media só um instante isolado (163.6px, capturado sem perceber que esse vídeo tb tem uma "postura crescendo": começa em char_h_frac~0.72 (frames 0-8) e cresce até um platô estável ~0.92 (frames 24+, onde ele fica a maior parte do tempo). Pior ainda: o v44 tinha calculado rhf usando a fórmula errada (A/Va, assumindo vídeo mais largo que a caixa) quando na verdade Va(0.98)<A_kronk(1.038), ou seja, esse vídeo É restrito por ALTURA (rhf=1.0), não por largura. As duas contas erradas combinadas (medir a fase pequena + rhf errado) resultaram numa escala (1.303) monstruosamente grande demais -- no platô estável, o Kronk chegava a 260px de altura (contra ~205px alvo) e a cabeça cortava de vez no topo da cena (relatado pelo usuário). Recalculado do zero usando o platô estável (char_h_frac=0.92) com rhf=1.0 correto */
 
@@ -779,9 +779,9 @@
       <img class="pose-avalanche-fallback" src="kronkrage.png" alt="Kronk desferindo Avalanche">
       <canvas class="pose-ragedano" data-video="kronkinragebeenhit_clean_v26.webm" data-rage="1"></canvas>
       <img class="pose-ragedano-fallback" src="kronkrage.png" alt="Kronk enfurecido ferido">
-      <canvas class="pose-entrarage" data-video="kronkentersrage_v28.webm" data-rage="1"></canvas>
+      <canvas class="pose-entrarage" data-video="kronkentersrage_v29.webm" data-rage="1"></canvas>
       <img class="pose-entrarage-fallback" src="kronkrage.png" alt="Kronk entrando em fúria">
-      <canvas class="pose-ragetonormal" data-video="kronkragetonormal_v28.webm"></canvas>
+      <canvas class="pose-ragetonormal" data-video="kronkragetonormal_v29.webm"></canvas>
       <img class="pose-ragetonormal-fallback" src="kronk.png" alt="Kronk saindo da fúria">
     </div>
     <div class="lutador" id="bryne">
@@ -842,7 +842,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v49';
+const BUILD_VERSION = 'v50';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1012,7 +1012,7 @@ function faseKronk(){
   if(escolha==='furia'){
     tocarCutsceneUltimate('kronk','Fúria', ()=>{
       const conectou = resolverKronk('furia');
-      finalizarTurnoKronk(conectou, 6250); // 150 frames/24fps do entrarage
+      finalizarTurnoKronk(conectou, 3333); // v50: 80 frames/24fps do entrarage recortado
     });
     return;
   }
@@ -1214,7 +1214,7 @@ function resolverKronk(id){
     // transição pra fúria: toca a animação de transformação uma vez e
     // assenta na pose de rage-idle (em vez de cortar direto pro rage-idle)
     S.kronk._emRage = true;
-    poseTemporariaCustom('kronk','entrarage', 6250, ()=>'defesa'); // v28: 150 frames/24fps (era 6875/165 -- video regerado sem o fade-to-black indevido, ver RESUMO v28)
+    poseTemporariaCustom('kronk','entrarage', 3333, ()=>'defesa'); // v50: 80 frames/24fps (era 6250/150 -- vídeo recortado pra tirar o corte de cabeça sustentado nos últimos frames, ver RESUMO v50)
     som('cura');
     tocar('kronkragescream1.mp3', VOL_VOZ);
     log('Kronk explode em <span class="ruim">FÚRIA</span>. <span class="acerto">+10 vida</span>, mais força — mas fica exposto.');
@@ -1619,7 +1619,7 @@ function poseRepouso(quem){
 function retornoKronk(){
   if(S.kronk._emRage && S.ef.furia<=0){
     S.kronk._emRage = false;
-    poseTemporariaCustom('kronk','ragetonormal', 6250, ()=>'base'); // v28: 150 frames/24fps (era 6875/165)
+    poseTemporariaCustom('kronk','ragetonormal', 3333, ()=>'base'); // v50: 80 frames/24fps (era 6250/150 -- vídeo recortado, ver RESUMO v50)
     return null;
   }
   if(S.ef.furia>0) S.kronk._emRage = true;
