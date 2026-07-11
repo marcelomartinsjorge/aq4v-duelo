@@ -935,6 +935,50 @@ Usuário reportou 3 problemas depois do v38:
 
 `BUILD_VERSION` foi pra `v40`.
 
+---
+
+### 🟢 v41 — Parede de Escudos agora custa Estamina (ativar e manter)
+
+Usuário apontou corretamente: sem custo nenhum, a Parede virava um botão de pânico infinito contra o agarrão do Kronk (ele prende, ela ergue o escudo de graça, sem risco real).
+
+**Fix:** agora custa **40 de Estamina pra erguer** e **30/turno pra manter**. Com a regeneração de +20/turno, segurar o escudo dá um saldo líquido de -10/turno — dá pra segurar por uns 6-7 turnos a partir de estamina cheia, mas não pra sempre. Botão desabilita sozinho (com aviso "sem estamina") quando não dá pra pagar, forçando ela a agir de outro jeito — o que já abandona a postura naturalmente pelas regras existentes.
+
+Efeito prático: se ela gastou estamina agressivamente antes (Estocadas seguidas) e é pega de surpresa pelo agarrão com pouca estamina sobrando, pode simplesmente não ter como erguer o escudo a tempo — o gerenciamento de recurso passa a valer a pena de verdade.
+
+**Validação:** testado o ciclo completo (ativar, manter por vários turnos, esgotar, botão desabilitando) via Playwright. Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v41`.
+
+---
+
+### 🆕 v42 — Efeitos ambiente: poeira, partículas finas, bandeira rasgada
+
+Implementadas as 3 primeiras camadas de imersão que o usuário listou, todas em canvas (sem vídeo/imagem nova), com um interruptor fácil pra cada uma.
+
+**Como desligar (se achar ruim):** existe um objeto `AMBIENTE` bem no início do bloco de efeitos —
+```js
+const AMBIENTE = {
+  poeira: true,
+  particulas: true,
+  bandeira: true,
+};
+```
+Muda qualquer uma pra `false` e aquela camada especificamente para na hora (testado: zera os pixels desenhados imediatamente). Pra desligar tudo de uma vez, comenta a chamada `iniciarEfeitosAmbiente();` no fim do bloco.
+
+**Camada 1 — Rajada de poeira:** a cada 10-25s (sorteado, nunca igual), um aglomerado de manchas suaves (gradiente radial, não uma forma sólida) atravessa a tela horizontalmente — direção sorteada a cada vez (esquerda→direita ou direita→esquerda), sempre na faixa do "chão" (nunca cruza na altura do rosto dos personagens), com fade-in/fade-out suave nas pontas e opacidade bem baixa (0.15 no pico) — "só um vento passando", não tempestade.
+
+**Camada 2 — Partículas finas:** 20 partículas bem pequenas (0.5-1.9px) e bem sutis (opacidade 0.06-0.19), subindo devagar com uma leve serpenteada horizontal (seno) e um piscar de opacidade quase imperceptível, renascendo por baixo quando saem por cima da tela. Ficam numa camada NA FRENTE dos personagens (mas atrás do HUD/sangue), pra dar a sensação de "ar vivo" — efeito Diablo IV como pedido.
+
+**Camada 3 — Bandeira rasgada:** desenhada e animada do zero (não é a arte de fundo — é um elemento novo, com controle total sobre a forma e o movimento), presa a um mastro no canto superior esquerdo do cenário. A ondulação é uma onda viajando do mastro (quase parada, como pedido) até a ponta solta (bem mais solta), com a borda de baixo também desgastada de forma irregular (mais rasgada perto da ponta) pra parecer tecido surrado, não uma bandeira lisa.
+
+**Camadas técnicas:** duas canvas novas dentro da `.cena` — `#ambiente-fundo` (z-index:1, atrás dos personagens: bandeira + rajada) e `#ambiente-frente` (z-index:4, na frente dos personagens mas atrás do HUD/sangue: partículas finas).
+
+**Validação:** testado carregamento sem erros, tamanho dos 2 canvases, bandeira desenhando desde o primeiro frame, partículas populando gradualmente até o teto de 20, a rajada disparando de verdade (esperei os 10-25s reais e confirmei visualmente pela contagem de pixels crescendo e depois esmaecendo), os 3 interruptores desligando cada camada isoladamente, e a posição da bandeira (canto superior esquerdo, não atrapalha nem o HUD nem os personagens). Regressão completa do resto do jogo sem erros.
+
+`BUILD_VERSION` foi pra `v42`.
+
+**Próximos passos sugeridos** (não implementados ainda, aguardando confirmação): Camada 10 (poeira de impacto nos golpes) reusa a mesma infraestrutura de canvas já construída aqui — seria rápido de adicionar depois. Heat distortion (Camada 5) fica pra quando puder dar atenção ao ajuste fino que esse efeito específico pede.
+
 **Lição consolidada (importante pra qualquer pose futura de qualquer personagem):** a constante de proporção da caixa (`A` no cálculo de `rhf`) é ESPECÍFICA de cada caixa (`#kronk` ≠ `#bryne`), porque cada uma tem seu próprio `width`/`height` em % — nunca reusar a constante de um personagem pro outro. Sempre medir a proporção real via `getBoundingClientRect()` antes de calcular, e sempre que possível validar o resultado final comparando a altura renderizada de verdade contra uma pose já aprovada do MESMO personagem, não só confiar na fórmula.
 
 **Pontos que só dá pra confirmar vendo ao vivo:**
