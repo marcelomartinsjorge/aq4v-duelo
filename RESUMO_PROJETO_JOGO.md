@@ -1033,6 +1033,26 @@ Conectado em `verificarFim()`: se Kronk morre (HP≤0) E está em Fúria, a anim
 
 `BUILD_VERSION` foi pra `v44`.
 
+---
+
+### 🆕 v45 — morte normal do Kronk, investigação a fundo do "tamanho diferente" entre entrarage e rage idle
+
+**1) Morte normal do Kronk (`kronknormalmorre.mp4`).** Processado com o mesmo rigor: fundo perto do limiar (limpo com `force_green_v2.py`), calibrado pela postura EM PÉ inicial (frames 0-8, char_h_frac=0.817 — coincidência interessante, quase idêntico ao neutral do `pose-ataque`). Validado empiricamente contra `pose-dano`: **1.3% de diferença**. Conectado em `verificarFim()`: agora as DUAS variantes de morte do Kronk (normal e fúria) têm animação própria antes da tela de "Bryne vence".
+
+**2) Investigação da diferença de tamanho entrarage↔rage-idle.** Medi frame a frame o vídeo real (`kronkentersrage_v28.webm`, na verdade 1280x**612**, não 720 — um recorte de outra sessão) e descobri a causa raiz: **o vídeo mostra o Kronk genuinamente crescendo/inchando durante a transformação** — começa em `height_frac≈0.799` (frames 0-20) e cresce até `≈0.998` (a partir do frame ~60), um crescimento real de quase 25%, não um erro de processamento.
+
+A escala atual (1.91) foi calibrada pela postura FINAL da transformação, pra bater perfeitamente com o `pose-defesa` (rage idle) — e bate mesmo, confirmei de novo (208.7px vs 203-207px do rage idle, ótimo). O preço disso é que o **início** da transformação (logo no instante em que a Fúria é ativada) aparece visivelmente menor (~165px) que a pose normal de onde ele vem (~204-208px) — um salto perceptível bem no gatilho.
+
+**Por que não "consertei" isso ainda:** testei a alternativa óbvia (recalibrar pra bater no INÍCIO em vez do final) e o resultado é pior, não melhor — o Kronk terminaria a transformação **~15% maior que a caixa**, claramente quebrado visualmente, porque o crescimento real do vídeo é grande demais pra uma escala fixa só resolver de um lado sem estourar o outro. Um meio-termo (dividir o erro entre início e fim) deixa os DOIS lados perceptivelmente errados, em vez de só um.
+
+**O que teria que ser feito pra resolver de verdade:** um reprocessamento por frame (redimensionar cada quadro individualmente pra manter o Kronk do mesmo tamanho o tempo todo, cancelando o crescimento real do vídeo mas preservando a transformação visual/cor/pose) — isso é um trabalho de processamento de vídeo bem mais pesado que um ajuste de CSS, e eu não quis fazer isso sem sua confirmação, já que sacrificaria parte do efeito dramático de "crescer" que pode ter sido intencional na filmagem.
+
+**Decisão tomada por ora:** mantive a calibração atual (final bate com o rage idle, que é onde ele fica por mais tempo — a prioridade de continuidade mais importante). O salto no instante exato de ativar a Fúria continua existindo, mas é breve e acontece num momento que já é dramaticamente "de impacto" por natureza.
+
+`BUILD_VERSION` foi pra `v45`.
+
+**Preciso da sua decisão:** quer que eu faça o reprocessamento por frame (mais trabalhoso, resolve de verdade, mas pode reduzir o efeito de "crescer" da transformação), ou prefere manter como está (o final combina perfeitamente com o rage idle, só o instante inicial do gatilho tem um salto)?
+
 **Próximos passos sugeridos** (não implementados ainda, aguardando confirmação): Camada 10 (poeira de impacto nos golpes) reusa a mesma infraestrutura de canvas já construída aqui — seria rápido de adicionar depois. Heat distortion (Camada 5) fica pra quando puder dar atenção ao ajuste fino que esse efeito específico pede.
 
 **Lição consolidada (importante pra qualquer pose futura de qualquer personagem):** a constante de proporção da caixa (`A` no cálculo de `rhf`) é ESPECÍFICA de cada caixa (`#kronk` ≠ `#bryne`), porque cada uma tem seu próprio `width`/`height` em % — nunca reusar a constante de um personagem pro outro. Sempre medir a proporção real via `getBoundingClientRect()` antes de calcular, e sempre que possível validar o resultado final comparando a altura renderizada de verdade contra uma pose já aprovada do MESMO personagem, não só confiar na fórmula.

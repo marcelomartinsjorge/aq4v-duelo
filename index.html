@@ -183,6 +183,7 @@
   #bryne .pose-morre{ transform:scale(1.48); transform-origin:center bottom; } /* v44: pose de morte (brynemorre.mp4). Calibrado pela postura EM PÉ antes de cair (frames 0-8, char_h_frac=0.957), com a proporção real da caixa da Bryne (0.583). Centro horizontal já vinha bem centralizado no vídeo original (0.50-0.55), sem precisar de recorte */
   #kronk .pose-rageataque{ transform:scale(1.89); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto um problema mais sério que a escala: o recorte anterior (v27) estava DESCENTRALIZADO horizontalmente -- o centro médio do CORPO (medido só nos frames parados, sem a maça) ficava em 62.6% da largura do recorte, não 50%. Isso quebrava a continuidade visual ao trocar de pose (o Kronk "pulava" de lugar). Recalculado o recorte centralizado no corpo de verdade (crop=940:696:130:24, cobrindo toda a amplitude da maça erguida sem cortar nada), novo centro-x = 50.0%. A escala subiu (1.49→1.89) porque o recorte ficou mais largo pra caber a maça simetricamente dos dois lados do corpo centralizado */ /* v30: mesmo fix do pose-ataque -- limpeza por pixel (force_green_v2.py) em cima do fundo original que tinha score perto do limiar */
   #kronk .pose-ragemorre{ transform:scale(2.32) translateX(-12.11%); transform-origin:center bottom; } /* v43: [ver histórico] */ /* v44: CONTINUIDADE -- medição empírica na postura em pé (antes de cair) achou centro em 87.6% contra ~77.5% do alvo -- corrigido com translateX(-28.1%). A altura (204.2px) já batia bem com o grupo, não precisou mexer na escala */ /* v43 histórico: pose de morte em fúria (kronkragemorre.mp4). Calibrado pela postura EM PÉ antes de cair (frames 5-22), não pelo colapso final (a queda é o próprio conteúdo dramático, ficar menor no final é esperado) */
+  #kronk .pose-morre{ transform:scale(1.9716); transform-origin:center bottom; } /* v45: morte no estado normal (kronknormalmorre.mp4). Calibrado pela postura EM PÉ inicial (frames 0-8, char_h_frac=0.817 -- coincidentemente quase idêntico ao neutral do pose-ataque), proporção real da caixa do Kronk (1.038). Centro horizontal já vinha bem próximo de 50% no vídeo (0.521), validado empiricamente antes de decidir se precisava de translateX */
   #kronk .pose-avalanche{ transform:scale(2.142) translateX(6.12%); transform-origin:center bottom; } /* v40: [ver histórico] */ /* v44: CONTINUIDADE -- medição empírica na postura assentada (após os primeiros ~8s, quando o golpe já se resolveu) achou 189.5px de altura (contra ~200-220px do grupo) e centro em 72.8% (contra ~77.5% do alvo) -- corrigido escala (1.98→2.142) e adicionado translateX(+13.1%) */ /* v40 histórico: pose dedicada do Avalanche (kronkultimate.mp4, 240 frames/10s). Calibrado pela postura ASSENTADA final (frames 175-235), não pelo pico. Sem recorte adicional */
   #kronk .pose-ragedano{ transform:scale(1.17); transform-origin:center bottom; } /* v26: sem mudança de escala, limpeza universal de fundo aplicada por segurança extra dentro do recorte já feito no v25 */
   #kronk .pose-defesa{ transform:scale(1.00); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto que o recorte do v22 (aprovado na época pela qualidade da chave, mas nunca medido pra centralização/contato com o chão) tinha 68px de folga até o chão (9.4% da altura) e estava 12.6% fora do centro horizontal -- exatamente os mesmos dois problemas que achei e corrigi no rageataque nesta rodada. Como o rage idle é a pose de DESCANSO pra onde todas as outras poses de fúria voltam, essa inconsistência quebrava a continuidade visual toda vez que uma pose trocava pra/da rage idle. Recortado rente ao chão e centralizado no corpo (crop=704:654:64:0 sobre o vídeo já processado), preservando a mesma qualidade de chave do v22 (chroma_sim confirma buracos residuais == fundo real, não personagem) */
@@ -761,6 +762,8 @@
       <img class="pose-rageataque-fallback" src="kronkrage.png" alt="Kronk enfurecido atacando">
       <canvas class="pose-ragemorre" data-video="kronkragemorre.webm" data-rage="1"></canvas>
       <img class="pose-ragemorre-fallback" src="kronkrage.png" alt="Kronk morrendo em fúria">
+      <canvas class="pose-morre" data-video="kronknormalmorre.webm"></canvas>
+      <img class="pose-morre-fallback" src="kronkbeenhit.png" alt="Kronk morrendo">
       <canvas class="pose-avalanche" data-video="kronkavalanche.webm" data-rage="1"></canvas>
       <img class="pose-avalanche-fallback" src="kronkrage.png" alt="Kronk desferindo Avalanche">
       <canvas class="pose-ragedano" data-video="kronkinragebeenhit_clean_v26.webm" data-rage="1"></canvas>
@@ -828,7 +831,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v44';
+const BUILD_VERSION = 'v45';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1724,13 +1727,14 @@ function abalar(){
    ===================================================================== */
 function verificarFim(){
   if(S.kronk.hp<=0){
+    // v45: agora as duas variantes de morte do Kronk (normal e fúria) têm
+    // animação própria -- trava o jogo na hora, só mostra a tela de fim
+    // depois dos 4s de queda
+    S.over=true; S.travado=true; renderHabs();
     if(S.ef.furia>0){
-      // v43: morte em fúria tem animação própria -- trava o jogo na hora,
-      // mas só mostra a tela de fim depois dos 4s de queda
-      S.over=true; S.travado=true; renderHabs();
       poseTemporariaCustom('kronk','ragemorre', 4000, ()=>{ fimDeJogo(true); return null; });
     } else {
-      fimDeJogo(true);
+      poseTemporariaCustom('kronk','morre', 4000, ()=>{ fimDeJogo(true); return null; });
     }
     return true;
   }
