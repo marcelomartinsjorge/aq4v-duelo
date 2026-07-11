@@ -692,6 +692,55 @@
   }
   .fim button:hover{background:var(--pedra);}
 
+  /* Pontuação final (v56) -- cada minigame do universo gera pontos; aqui é
+     o HP restante da Bryne convertido numa pontuação de 0 a 1000. */
+  .pontuacao-bloco{
+    position:relative;
+    margin-bottom:26px;
+    padding:14px 34px 16px;
+    background:linear-gradient(165deg, rgba(28,21,15,.9), rgba(9,6,4,.94));
+    border:1px solid var(--dourado);
+    border-radius:3px;
+    box-shadow:0 4px 18px rgba(0,0,0,.6), inset 0 0 0 1px rgba(201,162,39,.25);
+    opacity:0;
+    transform:translateY(10px) scale(.96);
+    animation:pontuacaoEntra .5s ease .5s forwards;
+  }
+  @keyframes pontuacaoEntra{ to{opacity:1; transform:translateY(0) scale(1);} }
+  .pontuacao-bloco::before,.pontuacao-bloco::after{
+    content:'';
+    position:absolute;
+    width:8px;height:8px;
+    border:1px solid var(--dourado);
+    opacity:.6;
+  }
+  .pontuacao-bloco::before{top:-1px;left:-1px;border-right:none;border-bottom:none;}
+  .pontuacao-bloco::after{bottom:-1px;right:-1px;border-left:none;border-top:none;}
+  .pontuacao-label{
+    font-family:'Cinzel',serif;
+    font-size:11px;
+    letter-spacing:3px;
+    text-transform:uppercase;
+    color:#a8955f;
+    margin-bottom:4px;
+  }
+  .pontuacao-numero{
+    font-family:'Cinzel',serif;
+    font-weight:700;
+    font-size:40px;
+    letter-spacing:1px;
+    color:var(--dourado-claro);
+    text-shadow:0 0 18px rgba(201,162,39,.45), 0 2px 4px rgba(0,0,0,.8);
+    font-variant-numeric:tabular-nums;
+  }
+  .pontuacao-detalhe{
+    font-family:'EB Garamond',serif;
+    font-size:12.5px;
+    color:#8a7a5f;
+    margin-top:4px;
+    font-style:italic;
+  }
+
   .moldura.abala{animation:abalo .4s ease;}
   @keyframes abalo{
     0%,100%{transform:translate(0,0);}
@@ -820,6 +869,11 @@
     <div class="fim" id="fim">
       <h2 id="fim-titulo"></h2>
       <p id="fim-texto"></p>
+      <div class="pontuacao-bloco" id="pontuacao-bloco">
+        <div class="pontuacao-label">Pontuação</div>
+        <div class="pontuacao-numero" id="pontuacao-numero">0</div>
+        <div class="pontuacao-detalhe" id="pontuacao-detalhe"></div>
+      </div>
       <button id="reiniciar">Lutar de novo</button>
     </div>
   </div>
@@ -845,7 +899,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v55';
+const BUILD_VERSION = 'v56';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -1814,12 +1868,41 @@ function verificarFim(){
   }
   return false;
 }
+const PONTOS_MAX = 1000; // v56: escala de pontuação -- pensada pra se encaixar no
+                          // sistema maior do universo (cada minigame gera pontos
+                          // numa escala parecida, pra dar pra comparar/somar depois)
+
+function calcularPontuacaoFinal(){
+  // HP restante da Bryne convertido pra pontuação. Se ela perder, hp=0,
+  // pontuação=0 naturalmente -- não precisa de caso especial.
+  return Math.round((S.bryne.hp/S.bryne.max) * PONTOS_MAX);
+}
+
+function animarContagemPontuacao(alvo, duracaoMs){
+  const el = document.getElementById('pontuacao-numero');
+  const inicio = performance.now();
+  function passo(agora){
+    const t = Math.min(1,(agora-inicio)/duracaoMs);
+    const easeOut = 1-Math.pow(1-t,3); // desacelera suave no final, não linear
+    el.textContent = Math.round(alvo*easeOut);
+    if(t<1) requestAnimationFrame(passo);
+    else el.textContent = alvo;
+  }
+  requestAnimationFrame(passo);
+}
+
 function fimDeJogo(venceu){
   S.over=true; S.travado=true;
   renderHabs();
   const fim=document.getElementById('fim');
   fim.className='fim '+(venceu?'vitoria':'derrota');
   fim.style.display='flex';
+
+  const pontuacao = calcularPontuacaoFinal();
+  document.getElementById('pontuacao-numero').textContent='0';
+  document.getElementById('pontuacao-detalhe').textContent = `${S.bryne.hp} / ${S.bryne.max} de vida restante`;
+  setTimeout(()=>animarContagemPontuacao(pontuacao, 1100), 550); // espera o bloco entrar (v. CSS) antes de contar
+
   if(venceu){
     som('vitoria');
     document.getElementById('fim-titulo').textContent='Bryne vence';

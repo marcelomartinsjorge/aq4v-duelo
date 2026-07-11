@@ -1265,6 +1265,22 @@ A lógica: com regen de +20/turno e custo de só 6, usar esse golpe dá um saldo
 
 `BUILD_VERSION` foi pra `v55`.
 
+---
+
+### 🆕 v56 — sistema de pontuação final
+
+Implementado o sistema de pontuação pedido: HP restante da Bryne convertido numa pontuação de 0 a 1000, mostrada na tela de fim de jogo.
+
+**Fórmula:** `pontuacao = round((bryne.hp / bryne.max) * 1000)`. Se ela vencer com vida cheia, 1000 pontos; com metade da vida, 500; se ela perder (hp=0), a pontuação é 0 naturalmente, sem precisar de caso especial no código.
+
+**Apresentação:** um bloco novo na tela de fim, com a mesma moldura ornamentada (cantos dourados) do resto do HUD — aparece com uma pequena animação de entrada (fade + leve movimento pra cima) e o número **conta de 0 até o valor final** com uma desaceleração suave no final, em vez de só aparecer estático. Mostra também o detalhe ("X / 65 de vida restante") embaixo do número.
+
+**Pensado pra crescer:** a escala de 0-1000 e a função `calcularPontuacaoFinal()` foram feitas isoladas de propósito, já que você mencionou que cada minigame do universo vai gerar pontos — fica fácil de exportar esse número pra um sistema maior depois (localStorage, postMessage pra um hub, o que fizer mais sentido quando chegar a hora de integrar os jogos).
+
+**Validação:** testei o cálculo isolado (vários percentuais de vida), a animação de contagem (confirmei que sobe suavemente de 0 até o alvo exato, não pula direto), o caso de derrota (0 pontos), e o fluxo completo real (Kronk morrendo → animação de morte → tela de fim → pontuação aparecendo e contando corretamente). Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v56`.
+
 **Lição consolidada (atualiza a do v50):** ao medir corte de cabeça em qualquer pose, sempre checar a LARGURA do ponto mais alto, não só a posição. Um corte real é uma faixa larga (corpo, cabeça, ombros); uma ponta fina (arma, dedo, mecha de cabelo) de 1-15px de largura é cosmeticamente irrelevante mesmo tecnicamente "fora da tela", e forçar a escala pra baixo por causa disso troca um problema invisível por um problema visível (tamanho inconsistente o tempo todo).
 
 **Lição pra qualquer vídeo novo:** quando o tamanho não bate mesmo depois de calibrar a escala certinho, a pergunta certa não é só "que escala uso", mas "os pixels que eu preciso REALMENTE existem no arquivo?" — vale a pena olhar a FORMA do contorno no topo/base/laterais (afunila naturalmente, ou é uma faixa reta?) antes de assumir que é só uma conta de escala errada.
