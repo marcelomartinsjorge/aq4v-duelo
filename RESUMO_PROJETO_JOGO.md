@@ -1005,6 +1005,34 @@ Conectado em `verificarFim()`: se Kronk morre (HP≤0) E está em Fúria, a anim
 
 `BUILD_VERSION` foi pra `v43`.
 
+---
+
+### 🆕 v44 — morte da Bryne, auditoria completa de continuidade do Kronk, sangue crítico maior, sangue normal caindo até o chão
+
+**1) Morte da Bryne (`brynemorre.mp4`).** Processado com o mesmo rigor: fundo saudável (score 59-72, sem fade), sem recorte necessário (o vídeo já vem bem centralizado, 0.50-0.55 o tempo todo). Calibrado pela postura EM PÉ antes de cair (frames 0-9, char_h_frac=0.9557), usando a proporção real da caixa da Bryne (0.583, não a do Kronk). Validado empiricamente contra `pose-dano` aprovada: **0.3% de diferença** — excelente. Conectado em `verificarFim()`: ao chegar a 0 HP, a queda toca (4s) antes da tela de "Kronk vence" aparecer.
+
+**2) Auditoria completa de continuidade do Kronk.** Usuário reportou (corretamente) que, diferente da Bryne — que mantém tamanho/posição consistentes entre poses — o Kronk ainda tinha variações perceptíveis entre estados. Medi EMPIRICAMENTE (captura de canvas real, altura e centro horizontal renderizados) todas as poses principais dele, tabulando lado a lado:
+
+| Pose | Antes (altura / centro) | Depois | Status |
+|---|---|---|---|
+| pose-ataque | 202px / **86.8%** | 207px / **~78%** | corrigido |
+| pose-ragepressao | **163.6px** / 79.7% | **205px** / 77.9% | corrigido |
+| pose-avalanche | **189.5px** / **72.8%** | **204px** / **77.9%** | corrigido |
+| pose-ragemorre | 204px / **87.6%** | 204px / **~77.3%** (fase assentada) | corrigido |
+| base, dano, pressão, defesa, ragedano | já ok | inalterado | ok |
+
+**Achado técnico importante (documentado pra qualquer ajuste futuro):** `transform:scale(S) translateX(T%)` multiplica o efeito de `translateX` por `S` — a translação acontece no espaço de coordenadas LOCAL (antes de escalar), então o deslocamento final na tela é `T% × S`, não só `T%`. Errei isso na primeira tentativa (apliquei o T calculado sem dividir por S, o que fez 2 das 4 correções passarem do ponto). Corrigido dividindo o T pretendido por S em todos os casos.
+
+**Achado extra no `pose-ragemorre`:** o vídeo tem duas sub-fases na "postura em pé" antes de cair — uma transição inicial (~0.2-0.7s, valores inconsistentes) e a postura real assentada (~0.9-2.1s, bem estável). Medições que caem na fase de transição por acaso do timing dão leitura errada; a fase assentada é a referência confiável.
+
+**3) Sangue crítico maior ("voou na cara").** Adicionado `transform:scale(1.65)` no canvas do sangue de tela cheia, ampliando o zoom sobre a região onde o sangue já se concentra (perto do centro do quadro) — mais impactante, mais "na cara do jogador", sem precisar reprocessar o vídeo.
+
+**4) Sangue normal agora cai até o chão.** O comportamento de "grudar na tela" era real: o vídeo tocava e simplesmente sumia no lugar, sem sensação de gravidade. Adicionado um sistema procedural NOVO (`quedaSangue()`) que roda JUNTO com o vídeo — algumas gotas nascem no mesmo ponto do jorro filmado e caem de verdade (aceleração, leque de queda) até perto do chão de cada personagem, com um pequeno respingo ao "pousar" antes de sumir. O vídeo continua sendo a parte bonita/realista do impacto; a queda procedural resolve só o comportamento que faltava.
+
+**Validação:** todos os itens testados com medição real de DOM/canvas — a queda de sangue testada do disparo até o pouso e desaparecimento completo (8s), a morte da Bryne testada de ponta a ponta (dano fatal → pose certa → tela de fim, com margem de tempo correta pro vídeo iniciar), e as 4 correções de continuidade do Kronk revalidadas com múltiplas amostras (não só um frame) pra separar sinal real de ruído natural do movimento. Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v44`.
+
 **Próximos passos sugeridos** (não implementados ainda, aguardando confirmação): Camada 10 (poeira de impacto nos golpes) reusa a mesma infraestrutura de canvas já construída aqui — seria rápido de adicionar depois. Heat distortion (Camada 5) fica pra quando puder dar atenção ao ajuste fino que esse efeito específico pede.
 
 **Lição consolidada (importante pra qualquer pose futura de qualquer personagem):** a constante de proporção da caixa (`A` no cálculo de `rhf`) é ESPECÍFICA de cada caixa (`#kronk` ≠ `#bryne`), porque cada uma tem seu próprio `width`/`height` em % — nunca reusar a constante de um personagem pro outro. Sempre medir a proporção real via `getBoundingClientRect()` antes de calcular, e sempre que possível validar o resultado final comparando a altura renderizada de verdade contra uma pose já aprovada do MESMO personagem, não só confiar na fórmula.
