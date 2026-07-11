@@ -1194,6 +1194,30 @@ Usuário apontou, com razão, que a Camada 10 (poeira de impacto) tinha saído "
 
 `BUILD_VERSION` foi pra `v52`.
 
+---
+
+### 🟢 v53 — avalanche refinado pro tamanho máximo seguro (comparação direta com rage idle e rageataque)
+
+Usuário pediu uma comparação direta e confiável das 3 poses (rageataque confirmado perfeito, rage idle como referência, avalanche com problema), medindo pés e cabeça de cada uma.
+
+**Medição comparativa (mesma sessão, mesmo teste):**
+
+| Pose | Altura média | Pés (y) |
+|---|---|---|
+| pose-defesa (rage idle) | 204.0px | 240.9px |
+| pose-rageataque | ~229px (varia bastante — golpe em movimento) | 241.2px |
+| pose-avalanche (antes) | **186.0px** | 241.6px |
+
+Os pés das três batem certinho (240.9-241.6px, praticamente idêntico) — o ponto de ancoragem no chão está correto. O problema era só a altura do avalanche mesmo, quase 9% menor que o rage idle.
+
+**Testei escala por escala pra achar o limite real:** o corte não aparece aos poucos — é uma transição abrupta. Em 1.86, ainda zero corte em toda a duração de 10s do vídeo. Em 1.88, já é um corte de 150px de largura (o corpo, confirmado no v51). Não existe uma zona intermediária "quase segura" pra espremer mais tamanho sem cortar de verdade.
+
+**Fix:** escala ajustada pro máximo valor confirmado seguro: 1.725 → **1.86**. Isso sobe a altura média de 179.6px pra **188.3px** — mais perto do rage idle (204px), mas ainda uns 8% menor. Esse gap restante é o limite real imposto pela filmagem original (o enquadramento não deixou espaço de sobra suficiente pra ele aparecer do mesmo tamanho no pico do Avalanche) — não tem como fechar sem voltar a cortar o corpo.
+
+**Validação:** revalidei ao longo dos 10 segundos inteiros do vídeo (não só a fase assentada) — zero corte em qualquer ponto, pior margem +2.4px. Rodei a mega-varredura de segurança e a regressão completa; o único "corte" ainda detectado é o do `rageataque` (a pontinha de 1px da maça, já confirmado aceitável no v51, não é regressão).
+
+`BUILD_VERSION` foi pra `v53`.
+
 **Lição consolidada (atualiza a do v50):** ao medir corte de cabeça em qualquer pose, sempre checar a LARGURA do ponto mais alto, não só a posição. Um corte real é uma faixa larga (corpo, cabeça, ombros); uma ponta fina (arma, dedo, mecha de cabelo) de 1-15px de largura é cosmeticamente irrelevante mesmo tecnicamente "fora da tela", e forçar a escala pra baixo por causa disso troca um problema invisível por um problema visível (tamanho inconsistente o tempo todo).
 
 **Lição pra qualquer vídeo novo:** quando o tamanho não bate mesmo depois de calibrar a escala certinho, a pergunta certa não é só "que escala uso", mas "os pixels que eu preciso REALMENTE existem no arquivo?" — vale a pena olhar a FORMA do contorno no topo/base/laterais (afunila naturalmente, ou é uma faixa reta?) antes de assumir que é só uma conta de escala errada.
