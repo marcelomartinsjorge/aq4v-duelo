@@ -1241,6 +1241,30 @@ Usuário reportou resquícios de chroma nas mortes, especificamente pedindo pra 
 
 `BUILD_VERSION` foi pra `v54`.
 
+---
+
+### 🆕 v55 — Ataque de Respiro (recuperação de Estamina) e Parede de Escudos rebalanceada
+
+**1) Ataque de Respiro (`golpederespiro.mp4`).** Processado com o rigor de sempre — mas com uma surpresa: o vídeo veio com barras pretas nas laterais (pillarbox), tive que recortar isso (1280x720 → 1138x720) antes de rodar o resto do pipeline. Fundo saudável, sem fade. Calibrado pela fase assentada final (frames 60-90), proporção real da caixa da Bryne. Um momento toca o topo do quadro (frames 18-27) mas com largura estreita (21-25px) — gesto natural (braço/espada erguida), não corte real, mesma lição do v51.
+
+Nova opção dentro do menu de Ataque Estratégico (agora com 4 escolhas: Braço/Torso/Perna/Respiro):
+
+| | |
+|---|---|
+| Custo de Estamina | **6** (bem menos que os +20 de regeneração por turno) |
+| Dano | **1d4** (1-4) — propositalmente baixo, não é pra machucar |
+| Dificuldade de acerto | um pouco mais fácil que os outros (golpe cuidadoso, não um ataque de força) |
+
+A lógica: com regen de +20/turno e custo de só 6, usar esse golpe dá um saldo líquido de **+14 de Estamina** no turno — a única opção do jogo com ganho líquido tão grande, pensada pra ser a escolha clara quando o objetivo é recuperar fôlego em vez de causar dano.
+
+**2) Parede de Escudos rebalanceada.** Usuário achou a vida do escudo alta demais (22) e pediu pra reduzir pra 10, com uma regra nova: se o golpe for maior que a vida restante do escudo, o **excedente vaza pra vida real da Bryne** (antes, o escudo absorvia o golpe inteiro não importa o tamanho, e ela nunca perdia vida enquanto ele existisse).
+
+`ESCUDO_MAX`: 22 → **10**. `aplicarDanoBryne` reescrita: se o dano ≥ vida restante do escudo, ele quebra e a diferença (dano − vida restante) vira dano de verdade nela, com a mesma perda de Foco de um golpe direto.
+
+**Validação:** testei os dois de ponta a ponta com números controlados — Golpe de Respiro via clique real no menu (estamina 50→44, confirma custo 6; dano do Kronk consistente com 1d4). Escudo: ativado com 10 de vida, um golpe normal (6 de dano) absorvido sem tocar a vida dela, depois um crítico forçado que ultrapassa a vida restante (4) estourou o escudo e vazou exatamente o excedente pra vida real dela (65→53, 12 de dano, batendo com o cálculo). Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v55`.
+
 **Lição consolidada (atualiza a do v50):** ao medir corte de cabeça em qualquer pose, sempre checar a LARGURA do ponto mais alto, não só a posição. Um corte real é uma faixa larga (corpo, cabeça, ombros); uma ponta fina (arma, dedo, mecha de cabelo) de 1-15px de largura é cosmeticamente irrelevante mesmo tecnicamente "fora da tela", e forçar a escala pra baixo por causa disso troca um problema invisível por um problema visível (tamanho inconsistente o tempo todo).
 
 **Lição pra qualquer vídeo novo:** quando o tamanho não bate mesmo depois de calibrar a escala certinho, a pergunta certa não é só "que escala uso", mas "os pixels que eu preciso REALMENTE existem no arquivo?" — vale a pena olhar a FORMA do contorno no topo/base/laterais (afunila naturalmente, ou é uma faixa reta?) antes de assumir que é só uma conta de escala errada.

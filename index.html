@@ -189,6 +189,7 @@
   #kronk .pose-dano{ transform:scale(1.87); transform-origin:center bottom; } /* v26: remedida após a limpeza universal de fundo (a vinheta de canto do v25 estava inflando ligeiramente a medição de char_h_frac); escala ajustada de 1.81 pra 1.87 */
   #bryne .pose-escudoquebra{ transform:scale(1.44); transform-origin:center bottom; } /* v39: CORREÇÃO -- a escala anterior (0.81) foi calculada usando A=1.0323 (proporção da caixa do KRONK), mas a caixa da Bryne (#bryne) tem proporção BEM diferente (medida via DOM: 0.583, não 1.0323 -- as caixas deles têm width/height% bem diferentes). Isso fazia rhf sair errado e a escala ficar pequena demais. Recalculado com a proporção real da caixa dela (0.583) */
   #bryne .pose-ataqueultimate{ transform:scale(1.47); transform-origin:center bottom; } /* v39: mesma correção do pose-escudoquebra -- escala recalculada com a proporção real da caixa da Bryne (0.583), não a do Kronk (1.0323) */
+  #bryne .pose-respiro{ transform:scale(1.285); transform-origin:center bottom; } /* v55: Ataque de Respiro (golpederespiro.mp4). Vídeo veio com barras pretas nas laterais (pillarbox) -- recortado pra 1138x720 antes de processar. Calibrado pela fase assentada final (frames 60-90, char_h_frac=0.981), proporção real da caixa da Bryne (0.583). Um momento toca o topo do quadro (frames 18-27) mas com largura estreita (21-25px) -- gesto natural (braço/espada erguida), não corte real */
   #bryne .pose-morre{ transform:scale(1.48); transform-origin:center bottom; } /* v44: pose de morte (brynemorre.mp4). Calibrado pela postura EM PÉ antes de cair (frames 0-8, char_h_frac=0.957), com a proporção real da caixa da Bryne (0.583). Centro horizontal já vinha bem centralizado no vídeo original (0.50-0.55), sem precisar de recorte */
   #kronk .pose-rageataque{ transform:scale(1.89); transform-origin:center bottom; } /* v51: CORREÇÃO DA CORREÇÃO -- o v47 media "corte" como qualquer topo<0px, sem checar a LARGURA daquele topo. Reinvestigando (mesma lição do entrarage v50: cabeça real teria uma faixa larga, não afunilando), descobri que em TODAS as escalas testadas (1.39 até 1.89 original) o único ponto que ultrapassa y=0 é sempre 1px de largura -- a pontinha da maça no pico do golpe, não o corpo/cabeça dele. Isso é imperceptível na prática (1 pixel, por uma fração de segundo, durante um balanço rápido) -- revertido pra escala original (1.89), que combina certinho com o rage idle. Usuário relatou corretamente que a versão reduzida (1.391) ficava "chatinha" de menor o tempo todo -- essa troca não valia a pena por causa de 1px de ponta de arma */
   #kronk .pose-ragemorre{ transform:scale(2.15) translateX(-12.11%); transform-origin:center bottom; } /* v46: CORREÇÃO -- achado corte real de cabeça (topo chegando a -9.6px, fora da cena) na postura "em pé" entre t=1.9s-3.4s, mesmo essa tendo sido a fase usada pra calibrar no v44. Reduzida a escala (2.32→2.15) pra dar margem de segurança, sacrificando um pouco a combinação com pose-dano */ /* v43/v44 histórico: [ver acima] */
@@ -791,6 +792,8 @@
       <img class="pose-ataque-fallback" src="bryneataca.png" alt="Bryne atacando">
       <canvas class="pose-ataqueultimate" data-video="bryneataqueultimate.webm"></canvas>
       <img class="pose-ataqueultimate-fallback" src="bryneataca.png" alt="Bryne desferindo A Lâmina">
+      <canvas class="pose-respiro" data-video="golpederespiro.webm"></canvas>
+      <img class="pose-respiro-fallback" src="bryneataca.png" alt="Bryne desferindo o Golpe de Respiro">
       <canvas class="pose-entradadefesa" data-video="bryneentra_defesa_norm.webm"></canvas>
       <img class="pose-entradadefesa-fallback" src="brynedefende.png" alt="Bryne entrando em defesa">
       <canvas class="pose-defesa" data-video="bryne_defesa_loop_norm.webm"></canvas>
@@ -842,12 +845,12 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v54';
+const BUILD_VERSION = 'v55';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
 const DELAY_IMPACTO_KRONK = 2800; // Kronk: a maça só desce perto do fim do vídeo
-const ESCUDO_MAX = 22; // vida do escudo na postura de Parede de Escudos (Bryne)
+const ESCUDO_MAX = 10; // v55: era 22 -- usuário achou "vida demais", reduzido pra 10. Agora dano excedente (acima da vida restante do escudo) vira dano real em Bryne, ver aplicarDanoBryne
 const CUTSCENE_DURATION = 1000; // ms que a arte de ultimate fica na tela antes de cortar pro ataque
 
 /* Cutscene de ultimate (v34): fade pra preto -> arte cinematográfica em tela cheia ->
@@ -917,6 +920,7 @@ const CUSTO_PAREDE_MANTER = 30;
 const CUSTO_ESTRATEGICO_TORSO = 28;
 const CUSTO_ESTRATEGICO_BRACO = 20;
 const CUSTO_ESTRATEGICO_PERNA = 20;
+const CUSTO_RESPIRO = 6;
 const CUSTO_TERRENO = 15;
 const CUSTO_LEITURA = 15;
 const GANHO_ESTAMINA_TURNO = 20;
@@ -926,7 +930,7 @@ const habBryne = [
   {id:'estrategico', nome:'Ataque Estratégico', custoEstamina:CUSTO_ESTRATEGICO_BRACO, tip:`<b>Precisão tática</b><br>Escolha braço, torso ou perna. Torso causa mais dano; braço e perna são mais fracos mas aplicam um efeito tático no Kronk por 2 turnos.<br>Custa <b class="tip-estamina">${CUSTO_ESTRATEGICO_TORSO} de Estamina</b> (torso) ou <b class="tip-estamina">${CUSTO_ESTRATEGICO_BRACO}</b> (braço/perna).`, tipo:'normal'},
   {id:'terreno', nome:'Usar o Terreno', custoEstamina:CUSTO_TERRENO, tip:`<b>Defensiva</b><br>Gasta o turno. O próximo ataque inimigo rola com desvantagem; se ele errar, Bryne contra-ataca causando 5 de dano.<br>Custa <b class="tip-estamina">${CUSTO_TERRENO} de Estamina</b>.`, tipo:'normal'},
   {id:'leitura', nome:'Leitura de Combate', custoEstamina:CUSTO_LEITURA, tip:`<b>Preparação</b><br>Gasta o turno. Seu próximo ataque rola com vantagem (2 dados, melhor resultado).<br>Custa <b class="tip-estamina">${CUSTO_LEITURA} de Estamina</b>.`, tipo:'normal'},
-  {id:'parede', nome:'Parede de Escudos', custoEstamina:0, tip:`<b>Postura defensiva</b><br>Ergue um escudo com ${ESCUDO_MAX} de resistência própria. Enquanto ativa, todo dano vai pro escudo — Bryne fica protegida. Atacar ou usar qualquer outra habilidade abandona a postura. Se o escudo quebrar, Bryne fica atordoada.<br>Custa <b class="tip-estamina">${CUSTO_PAREDE_ATIVAR} de Estamina</b> pra erguer e <b class="tip-estamina">${CUSTO_PAREDE_MANTER}/turno</b> pra manter — não dá pra segurar pra sempre.`, tipo:'normal'},
+  {id:'parede', nome:'Parede de Escudos', custoEstamina:0, tip:`<b>Postura defensiva</b><br>Ergue um escudo com ${ESCUDO_MAX} de resistência própria. Enquanto ativa, o dano vai pro escudo primeiro — mas se o golpe for maior que a vida restante dele, o <b class="tip-ruim">excedente passa direto pra Bryne</b>. Atacar ou usar qualquer outra habilidade abandona a postura. Se o escudo quebrar, Bryne fica atordoada.<br>Custa <b class="tip-estamina">${CUSTO_PAREDE_ATIVAR} de Estamina</b> pra erguer e <b class="tip-estamina">${CUSTO_PAREDE_MANTER}/turno</b> pra manter — não dá pra segurar pra sempre.`, tipo:'normal'},
   {id:'lamina', nome:'A Lâmina', custoEstamina:CUSTO_LAMINA, tip:`<b>Ataque de precisão</b><br>D20+3 vs DIF 9. Crítico causa dano dobrado.<br>Requer <b class="tip-foco">Foco cheio</b> — consome todo o Foco ao usar.<br>Custa <b class="tip-estamina">${CUSTO_LAMINA} de Estamina</b>.`, tipo:'especial'}
 ];
 
@@ -937,6 +941,7 @@ const miraBryne = [
   {id:'estrategico_braco', nome:'Braço', custoEstamina:CUSTO_ESTRATEGICO_BRACO, tip:`<b>Dano 3–5</b><br>Se acertar, Kronk causa <b>-2 de dano</b> por 2 turnos ("Braço Ferido").<br>Custa <b class="tip-estamina">${CUSTO_ESTRATEGICO_BRACO} de Estamina</b>.`},
   {id:'estrategico_torso', nome:'Torso', custoEstamina:CUSTO_ESTRATEGICO_TORSO, tip:`<b>Dano 5–8</b><br>A opção mais segura — maior dano, sem efeito adicional.<br>Custa <b class="tip-estamina">${CUSTO_ESTRATEGICO_TORSO} de Estamina</b>.`},
   {id:'estrategico_perna', nome:'Perna', custoEstamina:CUSTO_ESTRATEGICO_PERNA, tip:`<b>Dano 3–5</b><br>Se acertar, Kronk fica <b>impreciso</b> (-3 pra acertar) por 2 turnos ("Perna Ferida").<br>Custa <b class="tip-estamina">${CUSTO_ESTRATEGICO_PERNA} de Estamina</b>.`},
+  {id:'estrategico_respiro', nome:'Respiro', custoEstamina:CUSTO_RESPIRO, tip:`<b>Golpe de fôlego</b><br>Dano baixo (1d4) — o objetivo não é machucar, é recuperar o ritmo.<br>Custa só <b class="tip-estamina">${CUSTO_RESPIRO} de Estamina</b>, bem menos que a regeneração do turno (+20) — a opção certa pra recuperar Estamina de verdade.`},
 ];
 function abrirMira(){
   if(S.over||S.travado) return;
@@ -1067,12 +1072,15 @@ function resolverBryne(id, cutscenePlayed){
     estrategico_torso: { nome:'mira o torso',    especial:false, dano:()=>clamp(Math.round(d20()/4)+3,5,8), dif:()=>defKronkAtual(),   parte:null, custoEstamina:CUSTO_ESTRATEGICO_TORSO },
     estrategico_braco: { nome:'mira o braço',    especial:false, dano:()=>clamp(Math.round(d20()/4)+1,3,5), dif:()=>defKronkAtual()+1, parte:'braco', custoEstamina:CUSTO_ESTRATEGICO_BRACO },
     estrategico_perna: { nome:'mira a perna',    especial:false, dano:()=>clamp(Math.round(d20()/4)+1,3,5), dif:()=>defKronkAtual()+1, parte:'perna', custoEstamina:CUSTO_ESTRATEGICO_PERNA },
+    estrategico_respiro:{ nome:'desfere um golpe de respiro', especial:false, dano:()=>Math.floor(Math.random()*4)+1 /*1d4*/, dif:()=>defKronkAtual()-1, parte:null, custoEstamina:CUSTO_RESPIRO },
   };
 
   if(ataques[id]){
     const cfg = ataques[id];
     if(id==='lamina'){
       poseTemporariaCustom('bryne','ataqueultimate', 4000, ()=>'base'); // 96 frames/24fps
+    } else if(id==='estrategico_respiro'){
+      poseTemporariaCustom('bryne','respiro', 4000, ()=>'base'); // 96 frames/24fps
     } else {
       poseAtaque('bryne');
     }
@@ -1274,6 +1282,7 @@ function resolverKronk(id){
       if(ef.bracoFerido>0) dano = Math.max(1,dano-2);
 
       const foiParede = ef.paredeAtiva;
+      const escudoAntesDoGolpe = S.escudoHP;
       aplicarDanoBryne(dano,false);
       const escudoQuebrouAgora = foiParede && !ef.paredeAtiva;
       if(!escudoQuebrouAgora) poseDano('bryne'); // escudo quebrando já tem a própria animação (ver aplicarDanoBryne)
@@ -1288,7 +1297,13 @@ function resolverKronk(id){
         log(`Kronk ${nome} — o golpe ecoa no <span class="acerto">escudo</span>. Dano: ${dano}.`);
         floats('bryne',dano,'escudo');
         if(escudoQuebrouAgora){
-          log('<span class="ruim">O escudo se estilhaça!</span> Bryne fica atordoada.');
+          const excedente = dano - escudoAntesDoGolpe;
+          if(excedente>0){
+            log(`<span class="ruim">O escudo se estilhaça!</span> O golpe era forte demais — <span class="ruim">${excedente}</span> de dano passa direto pra Bryne, que fica atordoada.`);
+            floats('bryne',excedente,'dano');
+          } else {
+            log('<span class="ruim">O escudo se estilhaça!</span> Bryne fica atordoada.');
+          }
         }
       } else if(crit){
         som('critico');
@@ -1350,14 +1365,25 @@ function aplicarDanoKronk(d){
 function aplicarDanoBryne(d,ignoraParede){
   let dano=d;
   if(S.ef.paredeAtiva && !ignoraParede){
-    S.escudoHP = Math.max(0, S.escudoHP-dano);
-    if(S.escudoHP<=0){
-      S.ef.paredeAtiva=false;
-      S.ef.atordoa=true;
+    const escudoAntes = S.escudoHP;
+    if(dano >= escudoAntes){
+      // v55: golpe maior que a vida restante do escudo -- ele quebra e o
+      // EXCEDENTE (o que sobrou do golpe depois de gastar toda a vida do
+      // escudo) vira dano de verdade em Bryne, em vez de sumir sem efeito
+      const excedente = dano - escudoAntes;
+      S.escudoHP = 0;
+      S.ef.paredeAtiva = false;
+      S.ef.atordoa = true;
       poseTemporariaCustom('bryne','escudoquebra', 5667, ()=>'base'); // 136 frames/24fps
+      if(excedente>0){
+        S.bryne.foco = clamp(S.bryne.foco-15,0,S.bryne.focoMax);
+        S.bryne.hp = clamp(S.bryne.hp-excedente,0,S.bryne.max);
+      }
+    } else {
+      S.escudoHP -= dano;
     }
     updateHP();
-    return; // dano vai todo pro escudo, Bryne não perde vida
+    return;
   }
   S.bryne.foco = clamp(S.bryne.foco-15,0,S.bryne.focoMax);
   S.bryne.hp = clamp(S.bryne.hp-dano,0,S.bryne.max);
@@ -1413,7 +1439,7 @@ const descEstado = {
   'Perna Ferida':'A perna de Kronk foi atingida: fica com -3 pra acertar Bryne até a duração acabar.',
   'Terreno':     'Bryne leu o terreno: o próximo ataque de Kronk rola com desvantagem. Se ele errar, ela contra-ataca causando 5 de dano.',
   'Leitura':     'Bryne estudou os movimentos: seu próximo ataque rola com vantagem (2 dados, fica com o melhor resultado).',
-  'Escudo':      'Bryne está na postura de Parede de Escudos: todo dano recebido vai pro escudo em vez de sua vida. Atacar ou usar outra habilidade abandona a postura.',
+  'Escudo':      'Bryne está na postura de Parede de Escudos: o dano vai pro escudo primeiro, mas o excedente (o que passar da vida restante dele) chega até ela de verdade. Atacar ou usar outra habilidade abandona a postura.',
   'Presa':       'Bryne está presa pelo agarrão de Kronk: o próximo golpe dele acerta automaticamente, sem chance de esquiva.',
 };
 
