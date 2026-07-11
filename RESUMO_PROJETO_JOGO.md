@@ -1178,6 +1178,22 @@ Interessante que os três tiveram o MESMO tratamento no v47 (todos reduzidos igu
 
 `BUILD_VERSION` foi pra `v51`.
 
+---
+
+### 🔴 v52 — poeira de impacto refeita do zero (o capricho que faltou)
+
+Usuário apontou, com razão, que a Camada 10 (poeira de impacto) tinha saído "umas bolinha transparente sem graça" — zero capricho comparado ao resto. Ele tinha razão de verdade: comparando o código, a poeira ambiente (Camada 1) e as partículas (Camada 2) usavam gradiente radial (`createRadialGradient`, esmaecendo do centro pra fora, técnica que dá o aspecto de nuvem macia), enquanto a poeira de impacto usava `ctx.arc()` com uma cor sólida e opacidade lisa — literalmente um círculo bem definido ficando transparente, sem nenhuma suavidade. Um descuido real, não só uma diferença de gosto.
+
+**Refeito do zero, com a mesma técnica das camadas elogiadas:**
+- Cada partícula agora é um gradiente radial de verdade (centro denso → meio → borda transparente), igual à rajada de poeira ambiente.
+- A nuvem **cresce e dissipa** ao longo da vida (o raio aumenta enquanto a opacidade cai — poeira real se expande no ar conforme assenta, não fica do mesmo tamanho até sumir de repente).
+- Duas camadas combinadas: uma "nuvem que sobe" (poucos blobs maiores, mais lentos) e uma "rasteira" que se espalha grudada no chão (mais blobs, achatados como elipses baixas, quase sem subir) — mais parecido com poeira de impacto de verdade, que tem esses dois comportamentos ao mesmo tempo.
+- Gravidade bem mais suave que o sangue (poeira é leve, paira, não cai como pedra) e arrasto do ar (a velocidade horizontal desacelera rápido, não é um movimento balístico reto).
+
+**Validação:** confirmei tecnicamente que o gradiente está funcionando de verdade (não só visualmente) — capturei o canvas ao vivo e contei quantos valores DIFERENTES de opacidade apareciam: 181 tons distintos logo após disparar (contra o que seria ~1-2 valores numa bolinha sólida antiga). Confirmei o ciclo completo de vida (cresce até ~2.1s, dissipa e limpa totalmente por volta de 3.4s) e testei via ação real do jogo (Estocada da Bryne) pra garantir que não é só a chamada direta que funciona.
+
+`BUILD_VERSION` foi pra `v52`.
+
 **Lição consolidada (atualiza a do v50):** ao medir corte de cabeça em qualquer pose, sempre checar a LARGURA do ponto mais alto, não só a posição. Um corte real é uma faixa larga (corpo, cabeça, ombros); uma ponta fina (arma, dedo, mecha de cabelo) de 1-15px de largura é cosmeticamente irrelevante mesmo tecnicamente "fora da tela", e forçar a escala pra baixo por causa disso troca um problema invisível por um problema visível (tamanho inconsistente o tempo todo).
 
 **Lição pra qualquer vídeo novo:** quando o tamanho não bate mesmo depois de calibrar a escala certinho, a pergunta certa não é só "que escala uso", mas "os pixels que eu preciso REALMENTE existem no arquivo?" — vale a pena olhar a FORMA do contorno no topo/base/laterais (afunila naturalmente, ou é uma faixa reta?) antes de assumir que é só uma conta de escala errada.

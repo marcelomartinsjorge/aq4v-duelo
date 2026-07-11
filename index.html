@@ -842,7 +842,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v51';
+const BUILD_VERSION = 'v52';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -2523,10 +2523,16 @@ function quedaSangue(id){
 function dispararSangueKronk(){ dispararSangue('sangue-corpo-kronk'); quedaSangue('sangue-queda-kronk'); }
 function dispararSangueBryne(){ dispararSangue('sangue-corpo-bryne'); quedaSangue('sangue-queda-bryne'); }
 
-/* v48: poeira de impacto (Camada 10) -- mesmo padrão de partículas do
-   quedaSangue, mas o leque nasce no CHÃO e explode pra cima/lados (poeira
-   sendo chutada), em vez de nascer em cima e cair. Cores terrosas, bem
-   mais transparente que o sangue (é poeira, não algo sólido). */
+/* v52: REFEITO -- a versão anterior desenhava círculos sólidos com opacidade
+   lisa (ctx.arc + fillStyle simples), exatamente a "bolinha transparente"
+   sem graça que foi criticada, e com razão: nada a ver com o capricho usado
+   na poeira ambiente e no sangue. Agora cada partícula é um gradiente
+   radial (centro denso, borda esmaecendo pra transparente -- mesma técnica
+   da rajada de poeira ambiente), e a nuvem toda CRESCE e DISSIPA ao longo
+   da vida (como poeira real se expandindo no ar), em vez de bolinhas de
+   tamanho fixo só ficando transparentes. Duas camadas: uma nuvem que sobe
+   (poucos blobs maiores, mais lentos) e uma "rasteira" que se espalha
+   grudada no chão (mais blobs, achatados, quase não sobem). */
 function poeiraImpacto(id, intensidade){
   const canvas = document.getElementById(id);
   if(!canvas) return;
@@ -2537,23 +2543,49 @@ function poeiraImpacto(id, intensidade){
   if(canvas.width!==w || canvas.height!==h){ canvas.width=w; canvas.height=h; }
   const ctx = canvas.getContext('2d');
 
-  const tonsPoeira = ['#8a7350','#9c8563','#7a6544','#b09872','#6e5a3c'];
-  const particulas = [];
-  const n = Math.max(2, Math.round((5+Math.random()*4)*intensidade));
-  for(let i=0;i<n;i++){
-    const ang = -Math.PI/2 + (Math.random()-0.5)*Math.PI*1.05; // leque pra cima e pros lados
-    const vel = (0.22+Math.random()*0.30)*h*(0.6+intensidade*0.4);
-    particulas.push({
-      x: w*(0.3+Math.random()*0.4),
-      y: h*0.96,
-      vx: Math.cos(ang)*vel*0.7,
+  const tons = ['214,196,158','196,178,140','174,156,118','150,132,98','226,210,176'];
+  const escala = 0.55+intensidade*0.55;
+  const blobs = [];
+
+  // nuvem que sobe: poucos blobs, maiores, mais lentos, vida mais longa
+  const nSubindo = Math.max(2, Math.round((4+Math.random()*3)*intensidade));
+  for(let i=0;i<nSubindo;i++){
+    const ang = -Math.PI/2 + (Math.random()-0.5)*Math.PI*0.85;
+    const vel = (0.10+Math.random()*0.14)*h*escala;
+    blobs.push({
+      x: w*(0.34+Math.random()*0.32),
+      y: h*0.92,
+      vx: Math.cos(ang)*vel*0.5,
       vy: Math.sin(ang)*vel,
-      r: (0.035+Math.random()*0.045)*w*(0.6+intensidade*0.4),
-      cor: tonsPoeira[(Math.random()*tonsPoeira.length)|0],
+      r0: (0.045+Math.random()*0.04)*w*escala,
+      rGrow: 2.2+Math.random()*1.4,
+      achatar: 1,
+      tom: tons[(Math.random()*tons.length)|0],
+      opacidadeBase: 0.20+Math.random()*0.13,
       vida: 1,
+      velVida: 0.42+Math.random()*0.22,
     });
   }
-  const g = h*1.7;
+  // rasteira no chão: mais blobs, achatados (elipses largas e baixas), quase não sobem, se espalham pros lados
+  const nRasteira = Math.max(3, Math.round((6+Math.random()*4)*intensidade));
+  for(let i=0;i<nRasteira;i++){
+    const lado = (Math.random()<0.5?-1:1);
+    blobs.push({
+      x: w*(0.5+lado*Math.random()*0.18),
+      y: h*(0.95+Math.random()*0.04),
+      vx: lado*(0.05+Math.random()*0.10)*w*escala,
+      vy: -(0.01+Math.random()*0.03)*h*escala,
+      r0: (0.05+Math.random()*0.045)*w*escala,
+      rGrow: 1.6+Math.random()*0.9,
+      achatar: 0.38, // bem achatada, rente ao chão
+      tom: tons[(Math.random()*tons.length)|0],
+      opacidadeBase: 0.16+Math.random()*0.11,
+      vida: 1,
+      velVida: 0.5+Math.random()*0.25,
+    });
+  }
+
+  const g = h*0.55; // gravidade bem suave -- poeira é leve, paira e some, não cai como pedra
   let ultimo = performance.now();
   if(canvas._raf) cancelAnimationFrame(canvas._raf);
 
@@ -2562,21 +2594,28 @@ function poeiraImpacto(id, intensidade){
     ultimo = agora;
     ctx.clearRect(0,0,w,h);
     let algumaViva = false;
-    for(const p of particulas){
-      p.vy += g*dt;
-      p.x += p.vx*dt;
-      p.y += p.vy*dt;
-      p.vida -= dt*0.8;
-      if(p.vida>0){
+    for(const b of blobs){
+      b.vy += g*dt;
+      b.vx *= (1-dt*1.4); // arrasto do ar -- desacelera rápido, não é balístico
+      b.vy *= (1-dt*0.5);
+      b.x += b.vx*dt;
+      b.y += b.vy*dt;
+      b.vida -= dt*b.velVida;
+      if(b.vida>0){
         algumaViva = true;
-        ctx.globalAlpha = Math.max(0,p.vida)*0.32; // poeira é bem mais translúcida que sangue
-        ctx.fillStyle = p.cor;
+        const progresso = 1-b.vida;
+        const r = b.r0*(1+progresso*b.rGrow); // cresce = dissipa, igual poeira real
+        const alpha = b.opacidadeBase*b.vida;
+        const grad = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,r);
+        grad.addColorStop(0, `rgba(${b.tom},${alpha.toFixed(3)})`);
+        grad.addColorStop(0.55, `rgba(${b.tom},${(alpha*0.5).toFixed(3)})`);
+        grad.addColorStop(1, `rgba(${b.tom},0)`);
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.ellipse(b.x,b.y,r,r*b.achatar,0,0,Math.PI*2);
         ctx.fill();
       }
     }
-    ctx.globalAlpha = 1;
     if(algumaViva) canvas._raf = requestAnimationFrame(passo);
     else { ctx.clearRect(0,0,w,h); canvas._raf = null; }
   }
@@ -2584,6 +2623,7 @@ function poeiraImpacto(id, intensidade){
 }
 function poeiraImpactoKronk(){ poeiraImpacto('poeira-impacto-kronk', 1); }
 function poeiraImpactoBryne(intensidade){ poeiraImpacto('poeira-impacto-bryne', intensidade||0.55); }
+
 
 // retoma o play dos vídeos em loop no primeiro clique (autoplay bloqueado)
 document.addEventListener('click', ()=>{
