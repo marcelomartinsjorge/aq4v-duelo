@@ -842,7 +842,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v48';
+const BUILD_VERSION = 'v49';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -973,11 +973,23 @@ function jogadorAge(id){
   if(S.over||S.travado) return;
   S.travado=true; renderHabs();
   setTurno('...');
+  const ef = S.ef;
+  const emDefesaAntes = !!(ef.terreno||ef.leitura||ef.paredeAtiva);
+  const ehAtaque = (id==='estocada'||id==='lamina'||id==='estrategico_torso'||id==='estrategico_braco'||id==='estrategico_perna');
+  let esperaKronk;
+  if(id==='lamina'){
+    esperaKronk = CUTSCENE_DURATION + 4000 + 300; // cutscene + pose-ataqueultimate + folga
+  } else if(ehAtaque){
+    esperaKronk = (emDefesaAntes ? 8000 : 4000) + 300; // bate com a duração real escolhida em poseAtaque('bryne')
+  } else {
+    // terreno / leitura / parede: só a transição pra postura defensiva (~1700ms), não uma animação longa
+    esperaKronk = 2200;
+  }
   const extra = (id==='lamina') ? CUTSCENE_DURATION : 0;
   resolverBryne(id);
   // o resultado pode vir com atraso (DELAY_IMPACTO, + cutscene se for ultimate); verifica fim depois disso
   setTimeout(()=>{ if(verificarFim()) return; }, DELAY_IMPACTO+150+extra);
-  setTimeout(()=>{ if(!S.over) faseKronk(); }, 8300+extra);
+  setTimeout(()=>{ if(!S.over) faseKronk(); }, esperaKronk);
 }
 
 function faseKronk(){
@@ -1000,15 +1012,16 @@ function faseKronk(){
   if(escolha==='furia'){
     tocarCutsceneUltimate('kronk','Fúria', ()=>{
       const conectou = resolverKronk('furia');
-      finalizarTurnoKronk(conectou);
+      finalizarTurnoKronk(conectou, 6250); // 150 frames/24fps do entrarage
     });
     return;
   }
+  const emRageAntes = S.ef.furia>0;
   const conectou = resolverKronk(escolha);
-  finalizarTurnoKronk(conectou);
+  finalizarTurnoKronk(conectou, duracaoAtaqueKronk(escolha, emRageAntes));
 }
 
-function finalizarTurnoKronk(conectou){
+function finalizarTurnoKronk(conectou, duracaoAnimacao){
   // Raiva: decai quando Kronk não consegue pressionar Bryne (errou ou usou algo que não é ataque)
   if(!conectou){
     S.kronk.raiva = clamp(S.kronk.raiva-10,0,S.kronk.raivaMax);
@@ -1021,9 +1034,13 @@ function finalizarTurnoKronk(conectou){
   if(S.ef.pernaFerida>0) S.ef.pernaFerida--;
   renderEstados();
   updateHP();
-  // verifica fim após o impacto atrasado; senão devolve o turno ao jogador
+  // v49: espera dinâmica -- antes era sempre DELAY_IMPACTO_KRONK+1800=4600ms fixo,
+  // mesmo quando a animação real era bem mais curta (ou, no caso do Avalanche,
+  // bem mais longa: 10s!). Agora espera o tempo real da pose escolhida, com uma
+  // folga pequena, tornando o ritmo do jogo bem mais dinâmico.
+  const espera = Math.max(DELAY_IMPACTO_KRONK+150, duracaoAnimacao+200);
   setTimeout(()=>{ if(verificarFim()) return; }, DELAY_IMPACTO_KRONK+150);
-  setTimeout(()=>{ if(!S.over) iniciarFasJogador(); }, DELAY_IMPACTO_KRONK+1800);
+  setTimeout(()=>{ if(!S.over) iniciarFasJogador(); }, espera);
 }
 
 /* =====================================================================
@@ -1667,17 +1684,26 @@ function poseTemporaria(quem, pose, dur){
 // 'garrar'/'peso' usam a pose de pressão (mesma animação pros dois);
 // qualquer outra coisa usa a animação de ataque genérica. Em fúria, TODO
 // ataque (incluindo garrar/peso) usa a animação única de ataque em fúria.
+function duracaoAtaqueKronk(tipoOuId, emRage){
+  const usaPressao = (tipoOuId==='garrar' || tipoOuId==='peso');
+  if(tipoOuId==='avalanche') return 10000;
+  if(emRage && usaPressao) return 4000;
+  if(emRage) return 4000;
+  if(usaPressao) return 4542;
+  return 5833;
+}
 function poseAtaque(quem, tipoOuId){
   if(quem==='kronk'){
     const emRage = S.ef.furia>0;
     S.kronk._emRage = emRage;
     const usaPressao = (tipoOuId==='garrar' || tipoOuId==='peso');
-    let pose, dur;
-    if(tipoOuId==='avalanche'){ pose='avalanche'; dur=10000; }  // v40: 240 frames/24fps, pose dedicada (kronkultimate.mp4)
-    else if(emRage && usaPressao){ pose='ragepressao'; dur=4000; }  // 96 frames/24fps -- v24: pose nova, antes reusava rageataque
-    else if(emRage){ pose='rageataque'; dur=4000; }        // 96 frames/24fps
-    else if(usaPressao){ pose='pressao'; dur=4542; }       // 109 frames/24fps
-    else { pose='ataque'; dur=5833; }                      // v26: 140 frames/24fps (era 5708/137, valor desatualizado desde a troca de vídeo no v23 -- não causava bug visível pq o vídeo real manda via 'ended'/polling, mas estava incorreto)
+    let pose;
+    const dur = duracaoAtaqueKronk(tipoOuId, emRage);
+    if(tipoOuId==='avalanche'){ pose='avalanche'; }  // v40: 240 frames/24fps, pose dedicada (kronkultimate.mp4)
+    else if(emRage && usaPressao){ pose='ragepressao'; }  // 96 frames/24fps -- v24: pose nova, antes reusava rageataque
+    else if(emRage){ pose='rageataque'; }        // 96 frames/24fps
+    else if(usaPressao){ pose='pressao'; }       // 109 frames/24fps
+    else { pose='ataque'; }                      // v26: 140 frames/24fps (era 5708/137, valor desatualizado desde a troca de vídeo no v23 -- não causava bug visível pq o vídeo real manda via 'ended'/polling, mas estava incorreto)
     poseTemporariaCustom('kronk', pose, dur, retornoKronk);
     return;
   }

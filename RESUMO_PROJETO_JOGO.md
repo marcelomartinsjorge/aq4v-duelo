@@ -1111,6 +1111,35 @@ Depois de discutir as camadas de imersão restantes (heat distortion ficou de fo
 
 `BUILD_VERSION` foi pra `v48`.
 
+---
+
+### 🟢 v49 — reinvestigação do entrarage (sem reprodução do erro) + ritmo dinâmico entre turnos
+
+**1) Entrarage vs rage idle — reinvestigado.** Usuário reportou que o Kronk ainda ficava mais alto que o rage idle no fim da transformação. Refiz a medição com amostragem bem fina (a cada 80ms, inclusive bem no instante exato da troca de pose) e não consegui reproduzir — pelo contrário, o entrarage termina em ~197px contra ~203-206px do rage idle, ou seja, um pouco MENOR, não maior (efeito esperado da correção do v46, que reduziu a escala de propósito pra parar de cortar a cabeça). Levantei a suspeita de cache — a redução mais agressiva foi feita bem recentemente (v46/v47) e pode ser que a versão testada ainda fosse anterior a isso. Se o problema persistir depois de confirmar a versão aplicada, preciso de mais detalhe (print de tela, ou o instante exato) pra conseguir reproduzir de verdade.
+
+**2) Ritmo do jogo — achada a causa raiz de verdade.** Usuário perguntou se o atraso antes do Kronk agir era "tempo de pensar da IA" — não é, e a resposta revelou um bug real de ritmo: o jogo esperava um tempo **fixo de 8300ms** antes do turno do Kronk começar, **independente da duração real da animação da Bryne**. Como a maioria das ações dela (Estocada, Ataque Estratégico) usa uma animação de só 4000ms, sobravam ~4300ms de espera morta em praticamente todo turno — isso sim parecia "pensamento" artificial, mas era só um número fixo mal calibrado.
+
+**Pior ainda no sentido contrário:** o retorno do turno pro jogador depois da vez do Kronk também usava um número fixo (4600ms) — o que fazia sentido pros ataques normais dele, mas **cortava o Avalanche pela metade**: a animação dele dura 10 segundos inteiros, e o jogador recuperava o controle aos 4.6s, bem no meio do golpe mais dramático do jogo.
+
+**Fix:** os dois lados agora esperam o tempo real da animação que de fato está tocando, calculado dinamicamente a partir da ação escolhida (com uma pequena folga de segurança), em vez de um número fixo pensado pro pior caso:
+
+| Ação da Bryne | Espera antes do turno do Kronk (antes → agora) |
+|---|---|
+| Estocada / Ataque Estratégico (fora de postura) | 8300ms → **4300ms** |
+| idem, mas já em postura defensiva (Terreno/Leitura/Parede) | 8300ms → 8300ms (sem mudança, já precisava) |
+| A Lâmina (cutscene + ultimate) | 8300ms → **5300ms** |
+| Terreno / Leitura / Parede de Escudos | 8300ms → **2200ms** |
+
+| Ação do Kronk | Espera antes do turno da Bryne (antes → agora) |
+|---|---|
+| Macada / Garrar / Maça (fora de fúria) | 4600ms → **6033ms** (a animação real dura 5833ms) |
+| Ataques em fúria / Peso / Garrar em fúria | 4600ms → 4600-4742ms (praticamente igual, já estava próximo) |
+| **Avalanche** | 4600ms → **10200ms** (a animação real dura 10s — antes cortava mais da metade) |
+
+**Validação:** testei os dois extremos de verdade — uma Estocada normal agora libera o turno do Kronk em ~4.7s (era ~8.3s antes), e o Avalanche agora só devolve o controle ao jogador depois dos 10s completos (era cortado aos 4.6s). Rodei a regressão completa e uma partida inteira simulada (com Fúria ativando) sem erros.
+
+`BUILD_VERSION` foi pra `v49`.
+
 **Sendo direto sobre a troca feita:** essas 4 poses agora ficam visivelmente menores na postura "neutra" do que estavam antes — foi o preço de garantir que o pico do movimento (golpe erguido, queda) nunca corte. Não tem como ter as duas coisas (postura neutra do tamanho ideal E pico do movimento sem cortar) quando o vídeo-fonte tem uma amplitude de movimento tão grande — sempre que isso acontecer, vou priorizar "nunca corta" sobre "combina perfeito com as outras poses", já que corte é um bug visível na hora, enquanto uma diferença de tamanho é só uma imperfeição de continuidade.
 
 **Preciso da sua decisão:** quer que eu faça o reprocessamento por frame (mais trabalhoso, resolve de verdade, mas pode reduzir o efeito de "crescer" da transformação), ou prefere manter como está (o final combina perfeitamente com o rage idle, só o instante inicial do gatilho tem um salto)?
