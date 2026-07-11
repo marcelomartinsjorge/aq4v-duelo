@@ -1097,6 +1097,20 @@ O padrão se repete: `pose-ataque` e `pose-rageataque` cortavam no PICO do golpe
 
 `BUILD_VERSION` foi pra `v47`.
 
+---
+
+### 🆕 v48 — Camada 10: poeira de impacto (conecta personagem e cenário)
+
+Depois de discutir as camadas de imersão restantes (heat distortion ficou de fora por enquanto — risco de desempenho + é a mais difícil de calibrar sem parecer bug), escolhida a Camada 10 pelo melhor custo-benefício: reaproveita quase 100% do sistema de partículas já construído pro sangue (`quedaSangue`), só invertendo a física (poeira nasce no CHÃO e explode pra cima/lados, em vez de nascer em cima e cair) e trocando pra tons terrosos bem mais translúcidos (opacidade ~0.32, é poeira, não algo sólido).
+
+**Onde dispara:**
+- Kronk: toda vez que ele avança pra atacar (macada, garrar, maça, avalanche, peso, contra-ataque) — poeira nos próprios pés, representando o peso do movimento.
+- Bryne: toda vez que ela ataca (Estocada, Ataque Estratégico, A Lâmina — essa com um pouco mais de intensidade — e o contra-ataque de Terreno) — um respingo mais leve de areia, representando o passo rápido dela.
+
+**Validação:** testado disparo direto (nasce, anima, some sozinha em ~1.5s) e via ação real do jogo (`jogadorAge('estocada')` dispara a poeira nos pés dela corretamente). Rodei de novo a mega-varredura de segurança das poses do Kronk pra garantir que nada dessa mudança interferiu na continuidade corrigida no v47 — seguiu limpa (pior caso ainda positivo, +14px).
+
+`BUILD_VERSION` foi pra `v48`.
+
 **Sendo direto sobre a troca feita:** essas 4 poses agora ficam visivelmente menores na postura "neutra" do que estavam antes — foi o preço de garantir que o pico do movimento (golpe erguido, queda) nunca corte. Não tem como ter as duas coisas (postura neutra do tamanho ideal E pico do movimento sem cortar) quando o vídeo-fonte tem uma amplitude de movimento tão grande — sempre que isso acontecer, vou priorizar "nunca corta" sobre "combina perfeito com as outras poses", já que corte é um bug visível na hora, enquanto uma diferença de tamanho é só uma imperfeição de continuidade.
 
 **Preciso da sua decisão:** quer que eu faça o reprocessamento por frame (mais trabalhoso, resolve de verdade, mas pode reduzir o efeito de "crescer" da transformação), ou prefere manter como está (o final combina perfeitamente com o rage idle, só o instante inicial do gatilho tem um salto)?
