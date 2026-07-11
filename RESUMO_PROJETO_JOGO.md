@@ -1218,6 +1218,29 @@ Os pés das três batem certinho (240.9-241.6px, praticamente idêntico) — o p
 
 `BUILD_VERSION` foi pra `v53`.
 
+---
+
+### 🔴 v54 — resquício cinza nas 3 animações de morte (não era chroma verde -- era sombra desaturada)
+
+Usuário reportou resquícios de chroma nas mortes, especificamente pedindo pra procurar **cinza**, não verde. Boa pista, porque explica por que nunca tinha aparecido antes: cinza neutro (R≈G≈B) dá uma pontuação de chroma PERTO DE ZERO na fórmula do jogo (`score=min(g-r,g-b)`), que é justamente a faixa que o algoritmo classifica como **primeiro plano opaco**, não fundo. Ou seja, minha limpeza de sempre (`force_green_v2.py`) nunca teria tocado nisso, porque ela só repinta pixels que a própria fórmula já classifica como fundo (score alto/verde) — um cinza nunca seria candidato.
+
+**O que era de verdade:** uma sombra (provavelmente do próprio personagem caindo, projetada no chão do estúdio) que escureceu/dessaturou o verde do chroma a ponto de virar um cinza neutro — sem hue verde suficiente pra ser reconhecida como fundo por NENHUMA fórmula de chroma key baseada em cor.
+
+**As 3 animações de morte estavam afetadas**, uma até pior do que a checagem inicial sugeria:
+- `kronknormalmorre`: mancha real confirmada, perto do chão.
+- `brynemorre`: mancha bem grande (quase 2 milhões de pixels ao longo do vídeo inteiro na região afetada).
+- `kronkragemorre`: uma checagem rápida inicial (critério grosseiro) achou zero, mas refazendo com a fórmula EXATA do jogo (não uma aproximação), achou 773 mil pixels — a checagem inicial tinha um critério bom demais (só pegava tons claramente acinzentados), não capturava tudo que a fórmula real do jogo trata como opaco.
+
+**Desafio real:** a roupa/armadura escura dos personagens tem saturação parecida com a da mancha — não dá pra distinguir só pela cor. Precisei de um critério combinado: (a) pontuação de chroma igual à fórmula real do jogo (`score<55`, ou seja, teria alguma opacidade visível), **e** (b) baixa saturação (é cinza dessaturado, não pele/roupa com cor de verdade), **e** (c) preservar pixels bem escuros (sombra legítima sobre o próprio personagem), tudo isso **só na região do chão** (nunca no resto do corpo, pra não arriscar apagar tronco/cabeça por engano).
+
+**Resultado:** mancha eliminada nas três (confirmado pixel a pixel: de 353 mil, 2 milhões e 773 mil respectivamente, para efetivamente zero). Conferido que o corpo real de cada um permanece intacto (posição da cabeça e dos pés nos frames de calibração idênticas antes/depois).
+
+**Descoberta lateral (não é regressão de hoje):** ao revalidar, notei que `pose-morre` (Kronk normal) está uns 13-15% menor que `pose-dano` — mas isso já vem do v47 (quando reduzi a escala pra evitar corte durante a própria queda), não é algo que a limpeza de hoje mudou. Mantive como está, já que é o mesmo tipo de sacrifício aceito nas outras poses (ataque normal, avalanche).
+
+**Importante:** tentei generalizar essa varredura pra TODOS os vídeos do jogo, mas o critério (score baixo + baixa saturação) sozinho, sem saber ONDE fica o chão vs onde fica o personagem, pega a roupa escura legítima em qualquer lugar do corpo — não dá pra rodar isso "às cegas" no resto do jogo sem o mesmo cuidado de restringir à região certa. Se notar uma mancha parecida em alguma outra pose, me avisa qual e eu aplico o mesmo processo ali.
+
+`BUILD_VERSION` foi pra `v54`.
+
 **Lição consolidada (atualiza a do v50):** ao medir corte de cabeça em qualquer pose, sempre checar a LARGURA do ponto mais alto, não só a posição. Um corte real é uma faixa larga (corpo, cabeça, ombros); uma ponta fina (arma, dedo, mecha de cabelo) de 1-15px de largura é cosmeticamente irrelevante mesmo tecnicamente "fora da tela", e forçar a escala pra baixo por causa disso troca um problema invisível por um problema visível (tamanho inconsistente o tempo todo).
 
 **Lição pra qualquer vídeo novo:** quando o tamanho não bate mesmo depois de calibrar a escala certinho, a pergunta certa não é só "que escala uso", mas "os pixels que eu preciso REALMENTE existem no arquivo?" — vale a pena olhar a FORMA do contorno no topo/base/laterais (afunila naturalmente, ou é uma faixa reta?) antes de assumir que é só uma conta de escala errada.
