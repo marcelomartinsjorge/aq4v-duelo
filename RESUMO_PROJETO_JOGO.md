@@ -1067,6 +1067,38 @@ Usuário corrigiu minha leitura do v45: o problema do `entrarage` não era ficar
 
 `BUILD_VERSION` foi pra `v46`.
 
+---
+
+### 🔴 v47 — a auditoria de verdade: varredura completa em TODA pose, TODA duração (achados 4 cortes que a v46 não pegou)
+
+Usuário reportou que ainda via os mesmos erros depois do v46. Tinha razão — minha varredura anterior, mesmo tendo corrigido 3 casos reais, ainda testava só alguns pontos isolados no tempo em cada pose, não a duração INTEIRA. Fiz uma varredura muito mais rigorosa dessa vez: TODA pose do Kronk, amostrada a cada 100-400ms cobrindo 100% da duração de cada vídeo, medindo a posição real da cabeça em cada amostra.
+
+**Achados novos (o que a v46 não pegou):**
+
+| Pose | Quando corta | Profundidade do corte |
+|---|---|---|
+| `pose-ataque` | pico do golpe, t≈4.5-4.8s | -13.1px |
+| `pose-rageataque` | pico do golpe, t≈1.5-2.2s | **-60.1px** (o pior de todos) |
+| `pose-avalanche` | t≈6s (durante o golpe) | -34px |
+| `pose-morre` (Kronk normal) | durante a própria queda (não no início, que estava ok) | -12px |
+
+O padrão se repete: `pose-ataque` e `pose-rageataque` cortavam no PICO do golpe (maça erguida bem alto acima da cabeça) — um momento que minhas medições anteriores, focadas na postura "neutra" de início/fim, simplesmente não cobriam. `pose-avalanche` e `pose-morre` cortavam durante o movimento dinâmico do meio da animação (o golpe e a queda, respectivamente), não nas bordas que eu tinha testado antes.
+
+**Correção:** reduzida a escala das 4 poses (com o `translateX` de cada uma recalculado proporcionalmente, já que ele multiplica pelo `scale`):
+
+| Pose | Escala antes | Escala depois |
+|---|---|---|
+| pose-ataque | 1.98 | **1.724** |
+| pose-rageataque | 1.89 | **1.391** |
+| pose-avalanche | 2.142 | **1.725** |
+| pose-morre (normal) | 1.9716 | **1.724** |
+
+**Validação — dessa vez de verdade:** escrevi uma varredura única que testa TODAS as 13 poses do Kronk, cobrindo 100% da duração de cada uma (amostragem de 100-400ms), medindo a posição real da cabeça em cada amostra e registrando o pior caso global. Resultado: **zero cortes em qualquer pose, em qualquer instante** — o pior caso encontrado agora é +13.5px de margem (positivo), no `rageataque`. Essa varredura completa fica guardada e deve ser reexecutada em qualquer pose nova ou qualquer reajuste de escala futuro, exatamente pra não repetir o erro de testar de forma incompleta.
+
+`BUILD_VERSION` foi pra `v47`.
+
+**Sendo direto sobre a troca feita:** essas 4 poses agora ficam visivelmente menores na postura "neutra" do que estavam antes — foi o preço de garantir que o pico do movimento (golpe erguido, queda) nunca corte. Não tem como ter as duas coisas (postura neutra do tamanho ideal E pico do movimento sem cortar) quando o vídeo-fonte tem uma amplitude de movimento tão grande — sempre que isso acontecer, vou priorizar "nunca corta" sobre "combina perfeito com as outras poses", já que corte é um bug visível na hora, enquanto uma diferença de tamanho é só uma imperfeição de continuidade.
+
 **Preciso da sua decisão:** quer que eu faça o reprocessamento por frame (mais trabalhoso, resolve de verdade, mas pode reduzir o efeito de "crescer" da transformação), ou prefere manter como está (o final combina perfeitamente com o rage idle, só o instante inicial do gatilho tem um salto)?
 
 **Próximos passos sugeridos** (não implementados ainda, aguardando confirmação): Camada 10 (poeira de impacto nos golpes) reusa a mesma infraestrutura de canvas já construída aqui — seria rápido de adicionar depois. Heat distortion (Camada 5) fica pra quando puder dar atenção ao ajuste fino que esse efeito específico pede.
