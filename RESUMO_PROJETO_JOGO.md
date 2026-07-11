@@ -977,6 +977,34 @@ Muda qualquer uma pra `false` e aquela camada especificamente para na hora (test
 
 `BUILD_VERSION` foi pra `v42`.
 
+---
+
+### 🆕 v43 — economia de Estamina refeita (agora envolve TODAS as habilidades), morte em fúria implementada
+
+**1) Estamina repensada.** Usuário reportou que nunca sentiu aperto de estamina jogando — problema real: só Estocada, A Lâmina e Parede custavam algo; Ataque Estratégico (que causa dano parecido ao da Estocada) era de graça, então não tinha razão nenhuma pra sentir o custo em jogo normal. Agora TODAS as habilidades ofensivas/defensivas custam Estamina, numa escala pensada pra cada uma valer o que custa:
+
+| Habilidade | Custo | Por quê |
+|---|---|---|
+| Estocada | 35 (igual) | ataque básico + sangramento garantido |
+| Ataque Estratégico — Torso | **28** (era 0) | mais dano que braço/perna, sem efeito extra |
+| Ataque Estratégico — Braço/Perna | **20** (era 0) | menos dano, mas aplica debuff tático |
+| Usar o Terreno | **15** (era 0) | defensivo, monta contra-ataque condicional |
+| Leitura de Combate | **15** (era 0) | defensivo, vantagem no próximo ataque |
+| Parede de Escudos | 40 ativar / 30 manter (igual) | postura, absorve tudo |
+| A Lâmina | 50 (igual) | ultimate, + exige Foco cheio |
+
+Com regen de +20/turno, mesmo a opção mais barata (Terreno/Leitura, 15) dá um saldo levemente positivo se usada toda hora (+5/turno) — sustentável indefinidamente, mas as opções mais fortes (Torso, Estocada) drenam de verdade. Não tem mais "opção de graça claramente melhor" — cada escolha pesa no orçamento.
+
+Testado o menu de Ataque Estratégico especificamente: com pouca estamina (25, por exemplo), Torso fica desabilitado mas braço/perna continuam disponíveis (custam menos) — sempre sobra alguma ação viável, só que as melhores custam mais.
+
+**2) Morte em fúria (`kronkragemorre.mp4`).** Processado com o mesmo rigor: fundo com score perto do limiar (limpo com `force_green_v2.py`), calibrado pela postura EM PÉ antes de cair (frames 5-22, não pelo colapso final — a queda É o conteúdo dramático, ficar menor no final é o esperado, não um erro). Validado empiricamente contra `pose-dano`: 2.8% de diferença. Sem recorte horizontal (o corpo já toca a borda direita durante a queda, não sobra margem seguro pra recentralizar).
+
+Conectado em `verificarFim()`: se Kronk morre (HP≤0) E está em Fúria, a animação de queda toca primeiro (4s, trava o jogo na hora mas só mostra a tela de "Bryne vence" depois) — testado o fluxo completo (dano fatal → pose certa → tela de fim aparecendo só depois da animação).
+
+**Ainda faltam:** animações de morte de Bryne e de Kronk no estado normal (fora da fúria) — o usuário avisou que virão depois.
+
+`BUILD_VERSION` foi pra `v43`.
+
 **Próximos passos sugeridos** (não implementados ainda, aguardando confirmação): Camada 10 (poeira de impacto nos golpes) reusa a mesma infraestrutura de canvas já construída aqui — seria rápido de adicionar depois. Heat distortion (Camada 5) fica pra quando puder dar atenção ao ajuste fino que esse efeito específico pede.
 
 **Lição consolidada (importante pra qualquer pose futura de qualquer personagem):** a constante de proporção da caixa (`A` no cálculo de `rhf`) é ESPECÍFICA de cada caixa (`#kronk` ≠ `#bryne`), porque cada uma tem seu próprio `width`/`height` em % — nunca reusar a constante de um personagem pro outro. Sempre medir a proporção real via `getBoundingClientRect()` antes de calcular, e sempre que possível validar o resultado final comparando a altura renderizada de verdade contra uma pose já aprovada do MESMO personagem, não só confiar na fórmula.
