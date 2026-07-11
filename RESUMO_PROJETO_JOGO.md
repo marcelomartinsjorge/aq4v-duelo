@@ -1156,6 +1156,30 @@ Recalculada a escala pelo NOVO frame final (agora bem mais curto): `char_h_frac=
 
 `BUILD_VERSION` foi pra `v50`.
 
+---
+
+### 🟢 v51 — refinando o critério de "corte": nem todo pixel negativo é um corte real
+
+Usuário reportou que `pose-rageataque` e `pose-avalanche` ficaram menores que o rage idle depois do v47 — uma "diferença chata". Isso levou a reaplicar a lição do v50 (o entrarage): **medir a LARGURA do topo detectado, não só se ele passa de y=0**. Uma cabeça real cortada seria uma faixa larga; a ponta de uma arma ou um dedo é fina. O v47 tratava os dois casos como iguais.
+
+**Resultado da reinvestigação, escala por escala:**
+
+| Pose | Largura do corte na escala original | Diagnóstico | Decisão |
+|---|---|---|---|
+| `pose-rageataque` | **1px** (mesmo na escala original 1.89) | ponta da maça, imperceptível | **revertido pra 1.89** (tamanho cheio) |
+| `pose-avalanche` | **110px** | corpo/cabeça mesmo | mantido reduzido (1.725) — corte real |
+| `pose-ataque` (normal) | **72px** | corpo/cabeça mesmo | mantido reduzido (1.724) — corte real |
+
+Interessante que os três tiveram o MESMO tratamento no v47 (todos reduzidos igualmente), mas só dois realmente precisavam — o `rageataque` estava sendo sacrificado por causa de 1 pixel de ponta de maça que nunca teria incomodado ninguém.
+
+**Fix:** `pose-rageataque` voltou pra escala 1.89, combinando de novo com o rage idle. `pose-avalanche` e `pose-ataque` continuam reduzidos, porque o corte deles é de verdade (a cabeça/corpo, não um detalhe fino).
+
+**Validação:** testei as três escalas (reduzida, intermediária, original) pra cada pose, tabulando largura do corte x tamanho resultante, e confirmei visualmente qual delas era "ponta fina" vs "corpo largo" antes de decidir. Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v51`.
+
+**Lição consolidada (atualiza a do v50):** ao medir corte de cabeça em qualquer pose, sempre checar a LARGURA do ponto mais alto, não só a posição. Um corte real é uma faixa larga (corpo, cabeça, ombros); uma ponta fina (arma, dedo, mecha de cabelo) de 1-15px de largura é cosmeticamente irrelevante mesmo tecnicamente "fora da tela", e forçar a escala pra baixo por causa disso troca um problema invisível por um problema visível (tamanho inconsistente o tempo todo).
+
 **Lição pra qualquer vídeo novo:** quando o tamanho não bate mesmo depois de calibrar a escala certinho, a pergunta certa não é só "que escala uso", mas "os pixels que eu preciso REALMENTE existem no arquivo?" — vale a pena olhar a FORMA do contorno no topo/base/laterais (afunila naturalmente, ou é uma faixa reta?) antes de assumir que é só uma conta de escala errada.
 
 **Sendo direto sobre a troca feita:** essas 4 poses agora ficam visivelmente menores na postura "neutra" do que estavam antes — foi o preço de garantir que o pico do movimento (golpe erguido, queda) nunca corte. Não tem como ter as duas coisas (postura neutra do tamanho ideal E pico do movimento sem cortar) quando o vídeo-fonte tem uma amplitude de movimento tão grande — sempre que isso acontecer, vou priorizar "nunca corta" sobre "combina perfeito com as outras poses", já que corte é um bug visível na hora, enquanto uma diferença de tamanho é só uma imperfeição de continuidade.
