@@ -1281,6 +1281,40 @@ Implementado o sistema de pontuação pedido: HP restante da Bryne convertido nu
 
 `BUILD_VERSION` foi pra `v56`.
 
+---
+
+### 🔴 v57 — revertida a limpeza do v54: estava apagando até 40% do corpo da Bryne
+
+Usuário reportou que a Bryne morta ficou "faltando metade do corpo, de cima pra baixo". Investiguei imediatamente e confirmei: **o erro foi meu, no v54**.
+
+**O que aconteceu:** a regra que escrevi pra limpar a mancha cinza (score de chroma baixo + baixa saturação, restrito à região do chão) era MUITO mais agressiva do que percebi na hora. Comparando quadro a quadro a versão de antes do v54 com a de depois, a partir do frame ~20 (de 96 no total) a área do corpo dela detectada caía consistentemente **38-40%** — não era só a sombra sendo limpa, era uma boa parte da roupa/pele real dela sendo apagada junto, porque tinham características de cor parecidas (já tinha percebido esse risco na hora, mas subestimei o quanto ia pegar).
+
+Os vídeos do Kronk também foram atingidos, um pouco menos (23% e 29% de área removida) mas ainda significativo o bastante pra arriscar o mesmo tipo de problema.
+
+**Fix:** revertidos os três vídeos de morte (`kronknormalmorre`, `kronkragemorre`, `brynemorre`) pra versão de ANTES do v54 — voltam a ter o corpo completo. Isso significa que a mancha cinza que o v54 tentava resolver **volta a aparecer** nessas animações. Decisão consciente: um corpo incompleto é um bug bem pior e mais visível que uma mancha cinza no chão, então priorizei reverter com segurança agora e reconsiderar uma limpeza mais cuidadosa depois, em vez de arriscar outra tentativa apressada.
+
+**Validação:** conferido quadro a quadro que a área do corpo nos três vídeos voltou a bater com a versão original (antes do v54). Regressão completa sem erros. Escala/posição não foram afetadas (só o conteúdo do vídeo mudou, não os valores de CSS).
+
+`BUILD_VERSION` foi pra `v57`.
+
+---
+
+### 🟡 v58 — investigada a posição do Golpe de Respiro (sem bug de calibração real)
+
+Usuário notou a Bryne "mudando de posição" no Golpe de Respiro comparado aos outros golpes. Investiguei a fundo:
+
+**Medi a animação inteira** (não só um instante) e comparei com `pose-ataque` (o golpe normal, como referência). Achado: existe sim um vaivém de posição (wobble) DURANTE o golpe — o centro horizontal varia entre 21.2% e 27.0% da cena (uma faixa de 5.8 pontos percentuais), um pouco maior que o wobble do `pose-ataque` normal (3.7pp). Mas a fase ASSENTADA, logo antes de voltar pra postura normal, já bate bem com a `pose-base` (22.2-22.3% nos dois).
+
+**Tentei uma correção e teve que reverter.** Calculei um `translateX` pensando em recentralizar, mas isso empurrou a fase já-alinhada pra 26%+ — ou seja, a correção estava "consertando" algo que já estava certo, e piorou. Revertido de volta ao estado sem correção.
+
+**Conclusão honesta:** o que existe é vaivém natural do próprio movimento do braço/corpo durante o golpe (mesma natureza do que acontece em QUALQUER golpe com movimento, incluindo os já aprovados), não um erro de recorte, escala ou posicionamento fixo. Como é vaivém (não um deslocamento constante), não dá pra "consertar" com `translateX` sem desalinhar a parte que já está boa. Se esse nível de wobble incomodar mais que o dos outros golpes, a solução de verdade seria reprocessar o vídeo (recorte diferente, talvez estabilização quadro a quadro) — um trabalho bem mais demorado do que um ajuste de CSS, e não fiz isso sem confirmar antes se vale a pena.
+
+`BUILD_VERSION` foi pra `v58`.
+
+**Pergunta:** esse nível de vaivém (5.8pp, contra 3.7pp do golpe normal) é o que estava incomodando, ou tem algum outro momento específico da animação que parece mais errado? Se puder descrever o instante exato (logo no início do golpe? no meio? ao voltar pra postura normal?), consigo mirar melhor.
+
+**Pergunta pro usuário:** quer que eu tente de novo a limpeza da mancha cinza, com uma abordagem bem mais conservadora (por exemplo, análise de componentes conectados pra achar especificamente o pedaço solto/periférico da sombra, em vez de uma regra de cor que cobre uma faixa inteira do quadro), ou prefere deixar a mancha aí por enquanto e focar noutra coisa?
+
 **Lição consolidada (atualiza a do v50):** ao medir corte de cabeça em qualquer pose, sempre checar a LARGURA do ponto mais alto, não só a posição. Um corte real é uma faixa larga (corpo, cabeça, ombros); uma ponta fina (arma, dedo, mecha de cabelo) de 1-15px de largura é cosmeticamente irrelevante mesmo tecnicamente "fora da tela", e forçar a escala pra baixo por causa disso troca um problema invisível por um problema visível (tamanho inconsistente o tempo todo).
 
 **Lição pra qualquer vídeo novo:** quando o tamanho não bate mesmo depois de calibrar a escala certinho, a pergunta certa não é só "que escala uso", mas "os pixels que eu preciso REALMENTE existem no arquivo?" — vale a pena olhar a FORMA do contorno no topo/base/laterais (afunila naturalmente, ou é uma faixa reta?) antes de assumir que é só uma conta de escala errada.
