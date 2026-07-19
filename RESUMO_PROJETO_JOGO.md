@@ -1311,6 +1311,24 @@ Usuário notou a Bryne "mudando de posição" no Golpe de Respiro comparado aos 
 
 `BUILD_VERSION` foi pra `v58`.
 
+---
+
+### 🟢 v59 — achada a causa real da "metade do corpo faltando" da Bryne: não era chroma, era contraste
+
+Usuário insistiu que a Bryne morta ainda estava com a metade de baixo do corpo faltando, mesmo depois do revert do v57. Investiguei com uma abordagem diferente dessa vez: em vez de só medir números, **extraí frames reais e olhei diretamente**.
+
+**Primeiro susto (falso alarme):** compus um frame sobre fundo cinza pra visualizar o alpha, e realmente parecia faltar a metade de baixo. Mas antes de concluir que era bug, refiz a composição sobre fundo **magenta** (alto contraste) — e ela apareceu inteira. O "sumiço" no teste com fundo cinza era só falta de contraste ENTRE ela e o MEU fundo de teste, não uma falta de pixel real.
+
+**Causa raiz de verdade:** comparei as cores da roupa dela (na pose caída) com as cores do fundo REAL do jogo (`bocaseca_v2.png`) na região onde ela cai — e são quase idênticas: a roupa dela fica em tons ~BGR(55-75), o chão do jogo naquela área é ~BGR(15-70). Ela está tecnicamente 100% presente e opaca (conferido pixel a pixel), só que **camuflada** pela semelhança de cor com o cenário — não é um bug de chroma key, é um problema de contraste entre personagem e fundo, que só aparece quando ela está deitada bem embaixo na tela (as outras poses, em pé, ficam numa região mais alta/clara do fundo).
+
+**Fix:** adicionado `filter:brightness(1.4) contrast(1.22)` mais um brilho suave e claro nas bordas (drop-shadow claro, não escuro) especificamente no `pose-morre` da Bryne, pra silhueta se destacar do fundo escuro mesmo quando as cores são parecidas.
+
+**Validação:** capturei um screenshot real do jogo (não just um teste sintético) com a correção aplicada — a silhueta dela fica visivelmente mais definida contra o chão escuro. Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v59`.
+
+Dá uma olhada e me confirma se a definição ficou boa o suficiente ou se preciso aumentar ainda mais o contraste/brilho.
+
 **Pergunta:** esse nível de vaivém (5.8pp, contra 3.7pp do golpe normal) é o que estava incomodando, ou tem algum outro momento específico da animação que parece mais errado? Se puder descrever o instante exato (logo no início do golpe? no meio? ao voltar pra postura normal?), consigo mirar melhor.
 
 **Pergunta pro usuário:** quer que eu tente de novo a limpeza da mancha cinza, com uma abordagem bem mais conservadora (por exemplo, análise de componentes conectados pra achar especificamente o pedaço solto/periférico da sombra, em vez de uma regra de cor que cobre uma faixa inteira do quadro), ou prefere deixar a mancha aí por enquanto e focar noutra coisa?
