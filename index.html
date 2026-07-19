@@ -192,8 +192,8 @@
   #bryne .pose-respiro{ transform:scale(1.285); transform-origin:center bottom; } /* v58: usuário notou variação de posição comparado aos outros golpes -- investiguei a fundo (varredura completa da animação, comparado com pose-ataque). Achado: a fase ASSENTADA (depois do golpe, ~t=2.8s+) já bate bem com pose-base (22.7-23.2% contra 22.3%) -- tentei uma correção de translateX pensando que precisava, mas isso SOBRESCREVEU um alinhamento que já estava bom, empurrando pra 26%+. Revertido. O que existe de verdade é um WOBBLE (vaivém) DURANTE o golpe em si (varia entre 21.2% e 27.0%, uma faixa de 5.8pp) -- um pouco maior que o wobble do pose-ataque normal (3.7pp), mas da mesma natureza: é o braço/corpo se movendo durante o golpe, não um erro de recorte ou escala. Como é vaivém (não um deslocamento fixo), não dá pra corrigir com translateX sem estragar a fase assentada, que já está certa */ /* v55: Ataque de Respiro (golpederespiro.mp4). Vídeo veio com barras pretas nas laterais (pillarbox) -- recortado pra 1138x720 antes de processar. Calibrado pela fase assentada final (frames 60-90, char_h_frac=0.981), proporção real da caixa da Bryne (0.583). Um momento toca o topo do quadro (frames 18-27) mas com largura estreita (21-25px) -- gesto natural (braço/espada erguida), não corte real */
   #bryne .pose-morre{ transform:scale(1.48); transform-origin:center bottom; filter:brightness(1.4) contrast(1.22) drop-shadow(0 0 7px rgba(255,235,190,.35)); } /* v59: usuário reportou "metade de baixo do corpo faltando" -- investiguei a fundo e NÃO é bug de chroma (conferido pixel a pixel: o alpha está opaco corretamente). É falta de CONTRASTE: a roupa escura dela (tons ~BGR 55-75) é quase idêntica ao fundo de terra escuro do jogo naquela região (~BGR 15-70) -- ela está tecnicamente lá, só quase invisível de tão parecida com o fundo. Adicionado brightness+contrast pra destacar, mais um brilho suave nas bordas (drop-shadow claro, não escuro) pra ajudar a silhueta a se separar do fundo mesmo escuro */
   #kronk .pose-rageataque{ transform:scale(1.89); transform-origin:center bottom; } /* v51: CORREÇÃO DA CORREÇÃO -- o v47 media "corte" como qualquer topo<0px, sem checar a LARGURA daquele topo. Reinvestigando (mesma lição do entrarage v50: cabeça real teria uma faixa larga, não afunilando), descobri que em TODAS as escalas testadas (1.39 até 1.89 original) o único ponto que ultrapassa y=0 é sempre 1px de largura -- a pontinha da maça no pico do golpe, não o corpo/cabeça dele. Isso é imperceptível na prática (1 pixel, por uma fração de segundo, durante um balanço rápido) -- revertido pra escala original (1.89), que combina certinho com o rage idle. Usuário relatou corretamente que a versão reduzida (1.391) ficava "chatinha" de menor o tempo todo -- essa troca não valia a pena por causa de 1px de ponta de arma */
-  #kronk .pose-ragemorre{ transform:scale(2.15) translateX(-12.11%); transform-origin:center bottom; } /* v46: CORREÇÃO -- achado corte real de cabeça (topo chegando a -9.6px, fora da cena) na postura "em pé" entre t=1.9s-3.4s, mesmo essa tendo sido a fase usada pra calibrar no v44. Reduzida a escala (2.32→2.15) pra dar margem de segurança, sacrificando um pouco a combinação com pose-dano */ /* v43/v44 histórico: [ver acima] */
-  #kronk .pose-morre{ transform:scale(1.724); transform-origin:center bottom; } /* v47: CORREÇÃO -- varredura completa achou corte durante a própria queda (não a postura em pé inicial, que estava ok): o corpo cresce (efeito de perspectiva ao cair pra frente) até 253px, chegando a -12px de corte. Reduzida a escala (1.9716→1.724) pra dar margem durante a queda inteira, não só no início */ /* v45: morte no estado normal (kronknormalmorre.mp4). Calibrado pela postura EM PÉ inicial (frames 0-8, char_h_frac=0.817 -- coincidentemente quase idêntico ao neutral do pose-ataque), proporção real da caixa do Kronk (1.038). Centro horizontal já vinha bem próximo de 50% no vídeo (0.521), validado empiricamente antes de decidir se precisava de translateX */
+  #kronk .pose-ragemorre{ transform:scale(2.15) translateX(-12.11%); transform-origin:center bottom; filter:brightness(1.35) contrast(1.2) drop-shadow(0 0 7px rgba(255,235,190,.3)); } /* v60: mesma correção de contraste do v59 (Bryne) -- não é chroma quebrado (conferido: zero resíduo verde de verdade), é a roupa/pele escura dele se camuflando no fundo de terra escuro do jogo na região onde ele cai */ /* v46: CORREÇÃO -- achado corte real de cabeça (topo chegando a -9.6px, fora da cena) na postura "em pé" entre t=1.9s-3.4s, mesmo essa tendo sido a fase usada pra calibrar no v44. Reduzida a escala (2.32→2.15) pra dar margem de segurança, sacrificando um pouco a combinação com pose-dano */ /* v43/v44 histórico: [ver acima] */
+  #kronk .pose-morre{ transform:scale(1.724); transform-origin:center bottom; filter:brightness(1.35) contrast(1.2) drop-shadow(0 0 7px rgba(255,235,190,.3)); } /* v60: mesma correção de contraste do v59 (Bryne) */ /* v47: CORREÇÃO -- varredura completa achou corte durante a própria queda (não a postura em pé inicial, que estava ok): o corpo cresce (efeito de perspectiva ao cair pra frente) até 253px, chegando a -12px de corte. Reduzida a escala (1.9716→1.724) pra dar margem durante a queda inteira, não só no início */ /* v45: morte no estado normal (kronknormalmorre.mp4). Calibrado pela postura EM PÉ inicial (frames 0-8, char_h_frac=0.817 -- coincidentemente quase idêntico ao neutral do pose-ataque), proporção real da caixa do Kronk (1.038). Centro horizontal já vinha bem próximo de 50% no vídeo (0.521), validado empiricamente antes de decidir se precisava de translateX */
   #kronk .pose-avalanche{ transform:scale(1.86) translateX(7.02%); transform-origin:center bottom; } /* v53: REFINADO pro máximo seguro -- usuário comparou lado a lado com pose-rageataque (confirmado perfeito) e pose-defesa (rage idle), achando o avalanche perceptivelmente menor (186px médio contra 204px do rage idle). Testei escala por escala: o corte começa de forma abrupta em ~1.87-1.88 (de 0px de corte direto pra 150px+ de largura -- não tem uma zona "quase segura" gradual, é ou seguro ou já é o corpo cortado). 1.86 é o maior valor confirmado com ZERO corte em toda a duração de 10s do vídeo. Sobe de 179.6px pra 188.3px de altura média (ainda ~8% menor que o rage idle, mas é o limite real imposto pela filmagem -- não dá pra fechar esse último gap sem cortar o corpo de verdade) */ /* v51: REINVESTIGADO e CONFIRMADO como corte real (diferente do rageataque) -- na escala original (2.142), o pior corte tem 110px de LARGURA (o corpo/cabeça dele mesmo, não uma ponta fina de arma como no rageataque) */ /* v47: CORREÇÃO -- varredura de 10s inteiros achou corte em t~6s: topo chegava a -34px */
   #kronk .pose-ragedano{ transform:scale(1.17); transform-origin:center bottom; } /* v26: sem mudança de escala, limpeza universal de fundo aplicada por segurança extra dentro do recorte já feito no v25 */
   #kronk .pose-defesa{ transform:scale(1.00); transform-origin:center bottom; } /* v29: CONTINUIDADE -- descoberto que o recorte do v22 (aprovado na época pela qualidade da chave, mas nunca medido pra centralização/contato com o chão) tinha 68px de folga até o chão (9.4% da altura) e estava 12.6% fora do centro horizontal -- exatamente os mesmos dois problemas que achei e corrigi no rageataque nesta rodada. Como o rage idle é a pose de DESCANSO pra onde todas as outras poses de fúria voltam, essa inconsistência quebrava a continuidade visual toda vez que uma pose trocava pra/da rage idle. Recortado rente ao chão e centralizado no corpo (crop=704:654:64:0 sobre o vídeo já processado), preservando a mesma qualidade de chave do v22 (chroma_sim confirma buracos residuais == fundo real, não personagem) */
@@ -899,7 +899,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v59';
+const BUILD_VERSION = 'v60';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -985,7 +985,7 @@ const habBryne = [
   {id:'terreno', nome:'Usar o Terreno', custoEstamina:CUSTO_TERRENO, tip:`<b>Defensiva</b><br>Gasta o turno. O próximo ataque inimigo rola com desvantagem; se ele errar, Bryne contra-ataca causando 5 de dano.<br>Custa <b class="tip-estamina">${CUSTO_TERRENO} de Estamina</b>.`, tipo:'normal'},
   {id:'leitura', nome:'Leitura de Combate', custoEstamina:CUSTO_LEITURA, tip:`<b>Preparação</b><br>Gasta o turno. Seu próximo ataque rola com vantagem (2 dados, melhor resultado).<br>Custa <b class="tip-estamina">${CUSTO_LEITURA} de Estamina</b>.`, tipo:'normal'},
   {id:'parede', nome:'Parede de Escudos', custoEstamina:0, tip:`<b>Postura defensiva</b><br>Ergue um escudo com ${ESCUDO_MAX} de resistência própria. Enquanto ativa, o dano vai pro escudo primeiro — mas se o golpe for maior que a vida restante dele, o <b class="tip-ruim">excedente passa direto pra Bryne</b>. Atacar ou usar qualquer outra habilidade abandona a postura. Se o escudo quebrar, Bryne fica atordoada.<br>Custa <b class="tip-estamina">${CUSTO_PAREDE_ATIVAR} de Estamina</b> pra erguer e <b class="tip-estamina">${CUSTO_PAREDE_MANTER}/turno</b> pra manter — não dá pra segurar pra sempre.`, tipo:'normal'},
-  {id:'lamina', nome:'A Lâmina', custoEstamina:CUSTO_LAMINA, tip:`<b>Ataque de precisão</b><br>D20+3 vs DIF 9. Crítico causa dano dobrado.<br>Requer <b class="tip-foco">Foco cheio</b> — consome todo o Foco ao usar.<br>Custa <b class="tip-estamina">${CUSTO_LAMINA} de Estamina</b>.`, tipo:'especial'}
+  {id:'lamina', nome:'A Lâmina', custoEstamina:CUSTO_LAMINA, tip:`<b>O golpe definitivo</b><br><b class="tip-acerto">Sempre acerta, sempre crítico</b> — dano dobrado garantido.<br>Requer <b class="tip-foco">Foco cheio</b> — consome todo o Foco ao usar.<br>Custa <b class="tip-estamina">${CUSTO_LAMINA} de Estamina</b>.`, tipo:'especial'}
 ];
 
 /* Ataque Estratégico: sub-menu de mira (braço/torso/perna). Não consome o
@@ -1054,6 +1054,13 @@ function jogadorAge(id){
 function faseKronk(){
   if(S.over) return;
   setTurno('Kronk age...');
+  // v60: Peso expira sozinho -- decrementado no INÍCIO do turno (antes de agir),
+  // então o turno em que é ativado não conta, e Bryne tem exatamente até 3
+  // turnos dela com o efeito valendo antes de sumir sozinho.
+  if(S.ef.peso>0){
+    S.ef.peso--;
+    if(S.ef.peso===0) log('Kronk relaxa a postura de peso — a brecha se fecha.');
+  }
   // Sangramento drena Kronk antes de ele agir
   if(S.ef.sangra>0){
     const d=Math.floor(Math.random()*4)+1; // 1d4
@@ -1150,7 +1157,7 @@ function resolverBryne(id, cutscenePlayed){
     if(ef.leitura){ rol=Math.max(r1,r2); ef.leitura=false; }
     else { rol=r1; }
     const total = rol + S.bryne.atk;
-    const crit = (rol===20);
+    const crit = (rol===20) || id==='lamina'; // v60: A Lâmina agora é sempre crítico e sempre acerta (usuário pediu mais força pro golpe especial)
     const alvoDIF = cfg.dif();
 
     if(crit || total>=alvoDIF){
@@ -1185,7 +1192,7 @@ function resolverBryne(id, cutscenePlayed){
         log(`Bryne ${cfg.nome} — D20: <span class="dado">${rol}</span> → <span class="ruim">errou</span>.`);
         floats('kronk','errou','erro');
         if(ef.peso){
-          ef.peso=false;
+          ef.peso=0;
           som('ataque'); somKronkHit(); vozBryneLevouDano();
           poseAtaque('kronk');
           poeiraImpactoKronk();
@@ -1286,11 +1293,11 @@ function resolverKronk(id){
     return false; // não pressionou Bryne neste turno -> Raiva não é reabastecida
   }
   if(id==='peso'){
-    ef.peso=true;
+    ef.peso=3; // v60: era permanente (só acabava se Bryne errasse) -- agora expira sozinho em 3 turnos
     poseAtaque('kronk','peso'); // mesma animação de pressão do Garrar
     poeiraImpactoKronk();
     som('buff');
-    log('Kronk avança como pedra. Se Bryne atacar e errar, <span class="ruim">paga caro</span>.');
+    log('Kronk avança como pedra. Por até 3 turnos, se Bryne atacar e <span class="ruim">errar</span>, paga caro.');
     renderEstados();
     return false;
   }
@@ -1487,7 +1494,7 @@ function corHP(p){
 const descEstado = {
   'Fúria':       'Kronk está enfurecido: +2 de dano em todos os ataques e defesa reduzida (9 em vez de 11). Tem acesso ao ataque Avalanche.',
   'Sangra':      'Kronk sangra: perde 1d4 de vida no início de cada um dos seus turnos, até acabar a duração.',
-  'Peso':        'Kronk avançou com o peso do corpo: se Bryne atacar e errar agora, ele contra-ataca causando 6 de dano.',
+  'Peso':        'Kronk avançou com o peso do corpo: se Bryne atacar e errar, ele contra-ataca causando 6 de dano. Dura no máximo 3 turnos.',
   'Maça CD':     'Maça para Cima está recarregando — Kronk não pode usá-la de novo ainda.',
   'Braço Ferido':'O braço de Kronk foi atingido: seus ataques causam 2 de dano a menos até a duração acabar.',
   'Perna Ferida':'A perna de Kronk foi atingida: fica com -3 pra acertar Bryne até a duração acabar.',
@@ -1510,7 +1517,7 @@ function renderEstados(){
   // Kronk
   if(S.ef.furia>0) add(ek,'Fúria '+S.ef.furia,'ruim','Fúria');
   if(S.ef.sangra>0) add(ek,'Sangra '+S.ef.sangra,'ruim','Sangra');
-  if(S.ef.peso) add(ek,'Peso','frio','Peso');
+  if(S.ef.peso>0) add(ek,'Peso '+S.ef.peso,'frio','Peso');
   if(S.ef.macaCD>0) add(ek,'Maça '+S.ef.macaCD,'frio','Maça CD');
   if(S.ef.bracoFerido>0) add(ek,'Braço Ferido '+S.ef.bracoFerido,'bom','Braço Ferido');
   if(S.ef.pernaFerida>0) add(ek,'Perna Ferida '+S.ef.pernaFerida,'bom','Perna Ferida');
