@@ -378,14 +378,14 @@
     left:50%;
     transform:translateX(-50%) translateY(-6px);
     width:max-content;
-    max-width:200px;
+    max-width:240px;
     background:#0a0806;
     border:1px solid var(--dourado);
     border-radius:4px;
-    padding:7px 10px;
+    padding:11px 15px;
     font-family:'EB Garamond',serif;
-    font-size:11.5px;
-    line-height:1.4;
+    font-size:12.5px;
+    line-height:1.55;
     color:var(--osso);
     box-shadow:0 6px 20px rgba(0,0,0,.8);
     opacity:0;
@@ -899,7 +899,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v60';
+const BUILD_VERSION = 'v61';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
