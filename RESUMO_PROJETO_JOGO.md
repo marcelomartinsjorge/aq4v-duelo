@@ -1327,6 +1327,20 @@ Usuário insistiu que a Bryne morta ainda estava com a metade de baixo do corpo 
 
 `BUILD_VERSION` foi pra `v59`.
 
+---
+
+### 🆕 v60 — contraste do Kronk morrendo, A Lâmina mais forte, Peso com duração limitada
+
+**1) Resquício de chroma no Kronk morrendo.** Investiguei com cuidado pra não repetir o erro do v54: confirmei que **não há resíduo verde de verdade** (varredura pixel a pixel, zero encontrado). É o mesmo problema de contraste já identificado e corrigido pra Bryne no v59 — a roupa/pele escura dele se camufla no fundo de terra escuro do jogo na região onde ele cai. Aplicado o mesmo `filter:brightness(1.35) contrast(1.2)` + brilho suave nas bordas, nas duas variantes (`pose-morre` e `pose-ragemorre`).
+
+**2) A Lâmina mais forte.** Agora **sempre acerta e é sempre crítico** (dano dobrado garantido), independente da rolagem. Antes precisava de D20+3 vs DIF 9 (ou um 20 natural pra crítico); agora é o golpe definitivo de verdade. Testado com rolagem forçadamente baixa (que erraria certeza no sistema antigo) — o dano dobrado aplicou mesmo assim, confirmando o acerto garantido.
+
+**3) Peso do Kronk agora expira.** Antes, o efeito "se Bryne errar, toma 6 de dano" ficava ativo pra sempre (só sumia se ela chegasse a errar uma vez). Agora dura **no máximo 3 turnos** — decrementado no início de cada turno do Kronk (não no turno em que é ativado), dando a Bryne exatamente 3 turnos dela com o efeito valendo antes de expirar sozinho. O pill de status agora mostra o contador (`Peso 3`, `Peso 2`...) igual aos outros efeitos temporários.
+
+**Validação:** os três testados isoladamente com estado controlado — Lâmina confirmada acertando/critando mesmo com rolagem ruim forçada; Peso confirmado expirando exatamente em 3 decrementos. Regressão completa e mega-varredura de segurança sem erros novos (só o corte já conhecido e aceito da ponta da maça no rageataque).
+
+`BUILD_VERSION` foi pra `v60`.
+
 Dá uma olhada e me confirma se a definição ficou boa o suficiente ou se preciso aumentar ainda mais o contraste/brilho.
 
 **Pergunta:** esse nível de vaivém (5.8pp, contra 3.7pp do golpe normal) é o que estava incomodando, ou tem algum outro momento específico da animação que parece mais errado? Se puder descrever o instante exato (logo no início do golpe? no meio? ao voltar pra postura normal?), consigo mirar melhor.
