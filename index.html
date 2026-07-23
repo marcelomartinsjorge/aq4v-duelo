@@ -39,6 +39,81 @@
     padding:12px;
     overflow:hidden;
   }
+  /* ---------- CUTSCENE DE ABERTURA (v62) ---------- */
+  .intro-cutscene{
+    position:fixed;
+    inset:0;
+    background:#000;
+    z-index:200;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  .intro-cutscene.escondida{
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .7s ease;
+  }
+  #video-cutscene{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    background:#000;
+  }
+  .intro-toque{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,.55);
+    cursor:pointer;
+    transition:opacity .4s ease;
+  }
+  .intro-toque.escondida{opacity:0; pointer-events:none;}
+  .intro-toque-caixa{
+    text-align:center;
+    padding:28px 44px;
+    border:1px solid var(--dourado);
+    border-radius:4px;
+    background:linear-gradient(165deg, rgba(28,21,15,.92), rgba(9,6,4,.95));
+    box-shadow:0 8px 30px rgba(0,0,0,.7), inset 0 0 0 1px rgba(201,162,39,.2);
+  }
+  .intro-toque-titulo{
+    font-family:'Cinzel',serif;
+    font-size:22px;
+    letter-spacing:2px;
+    color:var(--dourado-claro);
+    margin-bottom:14px;
+    text-shadow:0 2px 6px rgba(0,0,0,.8);
+  }
+  .intro-toque-texto{
+    font-family:'EB Garamond',serif;
+    font-style:italic;
+    font-size:15px;
+    color:#c9b98a;
+    animation:pulsarToque 1.8s ease-in-out infinite;
+  }
+  @keyframes pulsarToque{ 0%,100%{opacity:.65;} 50%{opacity:1;} }
+  #pular-cutscene{
+    position:absolute;
+    bottom:22px;
+    right:22px;
+    padding:9px 18px;
+    font-family:'Cinzel',serif;
+    font-size:12.5px;
+    letter-spacing:1px;
+    color:var(--osso);
+    background:rgba(10,8,6,.7);
+    border:1px solid var(--dourado);
+    border-radius:3px;
+    cursor:pointer;
+    transition:background .15s, opacity .4s ease;
+  }
+  #pular-cutscene:hover{background:rgba(30,24,16,.85);}
+  #pular-cutscene.escondida{opacity:0; pointer-events:none;}
+
   .moldura{
     width:100%;
     max-width:640px;
@@ -761,6 +836,16 @@
 </style>
 </head>
 <body>
+<div class="intro-cutscene" id="intro-cutscene">
+  <video id="video-cutscene" src="cutscene1_web.mp4" playsinline></video>
+  <div class="intro-toque" id="intro-toque">
+    <div class="intro-toque-caixa">
+      <div class="intro-toque-titulo">As Quatro Vontades</div>
+      <div class="intro-toque-texto">Toque para começar</div>
+    </div>
+  </div>
+  <button id="pular-cutscene">Pular ›</button>
+</div>
 <div class="moldura" id="moldura">
 
   <div class="cena" id="cena">
@@ -899,7 +984,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v61';
+const BUILD_VERSION = 'v62';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -2277,6 +2362,41 @@ function iniciarEfeitosAmbiente(){
   agendarProximaRajada();
 }
 iniciarEfeitosAmbiente();
+
+/* =====================================================================
+   CUTSCENE DE ABERTURA (v62)
+   ===================================================================== */
+(function(){
+  const overlay = document.getElementById('intro-cutscene');
+  const video = document.getElementById('video-cutscene');
+  const toque = document.getElementById('intro-toque');
+  const botaoPular = document.getElementById('pular-cutscene');
+  let jaEncerrada = false;
+
+  function encerrarCutscene(){
+    if(jaEncerrada) return;
+    jaEncerrada = true;
+    video.pause();
+    overlay.classList.add('escondida');
+    setTimeout(()=>{ overlay.style.display='none'; }, 720); // espera o fade terminar antes de remover
+  }
+
+  function comecarReproducao(){
+    toque.classList.add('escondida');
+    desbloquearAudio(); // mesma função usada no resto do jogo pra liberar áudio no mobile
+    video.muted = false;
+    video.play().catch(()=>{
+      // autoplay com som pode falhar em alguns navegadores mesmo após toque -- tenta mudo como último recurso
+      video.muted = true;
+      video.play();
+    });
+  }
+
+  toque.addEventListener('click', comecarReproducao);
+  botaoPular.addEventListener('click', encerrarCutscene);
+  video.addEventListener('ended', encerrarCutscene);
+  video.addEventListener('error', encerrarCutscene); // se o vídeo falhar, não trava o jogador na tela preta
+})();
 
 /* =====================================================================
    INÍCIO / REINÍCIO

@@ -1341,6 +1341,41 @@ Usuário insistiu que a Bryne morta ainda estava com a metade de baixo do corpo 
 
 `BUILD_VERSION` foi pra `v60`.
 
+---
+
+### 🟢 v61 — respiro no tooltip das pílulas de status
+
+Usuário reportou que o texto dentro do tooltip que aparece ao passar o mouse nas pílulas de status (Fúria, Sangra, Peso, Terreno, etc.) estava "apertado", quase ilegível. Comparando com o tooltip dos botões de habilidade (`.h-tip`, que já estava bem espaçado), o das pílulas (`.pilula-tip`) estava com margem interna e largura visivelmente menores.
+
+**Ajustado:**
+| | Antes | Depois |
+|---|---|---|
+| padding | 7px 10px | **11px 15px** |
+| largura máxima | 200px | **240px** |
+| tamanho da fonte | 11.5px | **12.5px** |
+| altura de linha | 1.4 | **1.55** |
+
+**Validação:** testado com hover real em três efeitos de texto diferentes (Terreno, Peso, Fúria) — confirmado que o texto não transborda a caixa (sem corte) e que a caixa continua inteiramente dentro da cena visível (não vaza pras bordas), tanto no lado da Bryne quanto no do Kronk. Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v61`.
+
+---
+
+### 🆕 v62 — cutscene de abertura + resposta sobre sprite sheet
+
+**1) Sprite sheet único — não implementado, por escolha técnica informada.** Usuário perguntou se converter o jogo pra um sprite sheet único melhoraria a performance. Resposta: não deveria, e provavelmente pioraria — o jogo usa vídeo (VP9) com chroma key ao vivo, não sprites. Vídeo comprime movimento muito melhor que uma sequência de imagens (arquivo final maior num sprite sheet), o navegador decodifica vídeo com aceleração de hardware (sprite sheet não tem esse benefício), e o custo real de desempenho (o chroma key rodando por quadro) seria o mesmo de qualquer forma, já que é a mesma operação de recorte de transparência independente da fonte dos pixels. Não fiz a conversão para não gastar esforço numa mudança que eu não acredito que resolveria o problema real.
+
+**2) Cutscene de abertura (`jogo1cutscene1.mp4`).** Adicionada uma cena antes da luta começar — vídeo cinematográfico completo (Full HD, com áudio), não um clipe de personagem com chroma key (confirmado: cantos em tons neutros, não verdes; tem trilha/narração em áudio).
+
+- Reencodado de 17.9MB pra **2.9MB** (H.264, CRF 23, áudio AAC 128kbps, `+faststart` pra começar a tocar antes de baixar tudo) — mesma resolução e quantidade de quadros, só compressão mais adequada pra web.
+- Tela de "toque para começar" antes de tocar o vídeo — necessário pra liberar áudio em navegadores móveis (autoplay com som é bloqueado até haver uma interação do usuário).
+- Botão "Pular" sempre visível, pra quem já viu não precisar assistir de novo.
+- O jogo já inicializa por baixo da cutscene (estado, poses, tudo pronto) — quando a cutscene termina ou é pulada, só revela o que já estava esperando, sem atraso.
+
+**Validação:** o teste automatizado local não suporta H.264 (Chromium headless sem a licença do codec — limitação só do ambiente de teste, todo navegador real tem suporte nativo). Validei a lógica de controle (toque inicia, pular funciona, vídeo termina sozinho e revela o jogo) usando um encode temporário em VP9 só pra essa checagem, depois restaurado o arquivo H.264 real de produção. Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v62`.
+
 Dá uma olhada e me confirma se a definição ficou boa o suficiente ou se preciso aumentar ainda mais o contraste/brilho.
 
 **Pergunta:** esse nível de vaivém (5.8pp, contra 3.7pp do golpe normal) é o que estava incomodando, ou tem algum outro momento específico da animação que parece mais errado? Se puder descrever o instante exato (logo no início do golpe? no meio? ao voltar pra postura normal?), consigo mirar melhor.
