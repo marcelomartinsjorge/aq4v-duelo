@@ -984,7 +984,7 @@
 const EH_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 // Versão de build: mude este valor a cada atualização de vídeo/áudio para forçar
 // o navegador e a CDN do GitHub Pages a buscarem os arquivos novos (evita cache antigo)
-const BUILD_VERSION = 'v62';
+const BUILD_VERSION = 'v64';
 function cb(url){ return url + '?' + BUILD_VERSION; }
 document.getElementById('bgm').src = cb('Duty_Calls_-_Rod_Kim.mp3');
 const DELAY_IMPACTO = 900; // Bryne: tempo entre animação e impacto
@@ -2507,6 +2507,11 @@ function configurarVideosIdle(){
           integral[rowBase+x+1] = integral[prevRowBase+x+1] + rowSum;
         }
       }
+      // v63: mediaJanela definida FORA do loop por quadro (antes era recriada
+      // a cada chamada de loop(), ou seja, a cada quadro de animação, pra
+      // cada canvas ativo -- puro overhead de criar uma function object toda
+      // hora sem necessidade, já que W/H/integral valem o mesmo dentro deste
+      // mesmo frame). Mesma matemática exata, só sem recriar a função.
       function mediaJanela(cx,cy,raio){
         const x0=cx-raio<0?0:cx-raio, x1=cx+raio>=W?W-1:cx+raio;
         const y0=cy-raio<0?0:cy-raio, y1=cy+raio>=H?H-1:cy+raio;
@@ -2530,8 +2535,11 @@ function configurarVideosIdle(){
       //   pra zerar (a mancha pode ser maior que a janela pequena).
       // Perto da silhueta real a janela grande sempre acha bastante opacidade
       // por perto, então isso não mexe no corpo/espada.
+      // v63: cx/cy agora incrementados diretamente (sem % nem / por pixel) --
+      // mesmo valor matemático, só evitando módulo/divisão na iteração mais
+      // quente do frame (chamada até 2x por pixel).
+      let cx=0, cy=0;
       for(let i=0, p=0; i<d.length; i+=4, p++){
-        const cx = p % W, cy = (p/W)|0;
         const pequena = mediaJanela(cx,cy,6);
         // usa o MAIOR entre o alpha bruto do próprio pixel e a média da vizinhança,
         // em vez de substituir puro pela média. Isso evita que detalhes finos e
@@ -2551,6 +2559,7 @@ function configurarVideosIdle(){
           d[i+1] = Math.round((r+b)/2);
         }
         d[i+3] = final<0?0:(final>255?255:final);
+        cx++; if(cx===W){ cx=0; cy++; }
       }
       ctx.putImageData(frame,0,0);
     }

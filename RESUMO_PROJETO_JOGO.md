@@ -1376,6 +1376,34 @@ Usuário reportou que o texto dentro do tooltip que aparece ao passar o mouse na
 
 `BUILD_VERSION` foi pra `v62`.
 
+---
+
+### 🟢 v63 — auditoria completa antes do pacote standalone
+
+Usuário pediu uma análise de todo o código/assets em busca de otimizações antes de gerar o zip completo do jogo (standalone, sem depender do git) pra encaixar numa sequência de outros jogos.
+
+**1) Inventário de arquivos — 51MB de 85MB eram sobra.** Comparei todo arquivo existente contra o que é de fato referenciado no `index.html`. Achado: **28MB de vídeos de versões antigas** (não mais usados desde trocas de versão ao longo do projeto — `_v23`, `_v24`, `_v25`, `_v27`, etc.) e **23MB de arquivos zip de entregas anteriores** (`files.zip`, `jogo_completo.zip`) que não tinham nada a ver com o jogo rodando. Nenhum desses é usado por nenhuma linha do código atual — remover não afeta nada.
+
+**2) Otimização real no código de execução.** A função `mediaJanela` (usada no chroma key ao vivo, a parte mais cara do jogo em CPU) estava sendo **recriada a cada quadro de animação**, pra cada personagem ativo — puro overhead de criar uma function object toda hora sem necessidade. Movida pra fora do loop por quadro. Também troquei um cálculo de módulo/divisão (`p % W`, `(p/W)|0`) por um contador incremental simples, na iteração mais quente do algoritmo (roda até 2x por pixel). Mesma matemática exata, validada com a regressão completa e a mega-varredura de segurança (nenhuma mudança em corte, posição ou tamanho de nenhuma pose).
+
+**3) Achado um bug real, pré-existente:** `brynehit.mp3` (o som mecânico de impacto quando a Bryne acerta um golpe) é referenciado no código (`const mecBryneHit = 'brynehit.mp3'`) mas **o arquivo nunca existiu** no projeto — toda vez que ela acerta, o jogo tenta tocar um som que não existe, falha em silêncio (sem erro visível) e simplesmente não toca nada. Isso não foi causado por nada recente; parece ter passado despercebido desde que esse som foi planejado, provavelmente mascarado pelas falas de voz que tocam junto. Não inventei um arquivo de substituição sem confirmar com você antes — só sinalizando o achado.
+
+**4) Comentários de documentação — não vale a pena mexer.** 19KB (14.7%) do `index.html` são comentários JS documentando decisões técnicas ao longo do projeto. Isso é irrisório perto dos 30+MB de vídeo — não removi.
+
+**Pacote gerado:** `aq4v-duelo-standalone.zip`, contendo só `index.html` + os 55 arquivos de mídia realmente referenciados. **36MB, contra os 85MB do repositório completo** — uma redução de 58%, só removendo o que não é usado, sem tocar em nada funcional. Testado isoladamente (servido sozinho, fora do repositório) rodando uma partida real: todo asset carrega com HTTP 200, exceto o `brynehit.mp3` que já não existia mesmo (bug pré-existente, não novo).
+
+`BUILD_VERSION` foi pra `v63`.
+
+---
+
+### 🟢 v64 — brynehit.mp3 recebido, bug fechado
+
+Usuário enviou o arquivo faltante encontrado na auditoria do v63. Adicionado (`brynehit.mp3`, 1.18s, mp3 estéreo 48kHz). Testado via chamada direta (`somBryneHit()`) e via ataque real da Bryne no fluxo completo do jogo — carrega com HTTP 200 nos dois casos (era 404 antes). Regressão completa sem erros.
+
+`BUILD_VERSION` foi pra `v64`.
+
+**Pendência pro usuário:** tem um `brynehit.mp3` (ou similar) pra eu incluir, ou prefere que eu reaproveite temporariamente um som já existente (tipo o do Kronk) como placeholder até ter o arquivo certo?
+
 Dá uma olhada e me confirma se a definição ficou boa o suficiente ou se preciso aumentar ainda mais o contraste/brilho.
 
 **Pergunta:** esse nível de vaivém (5.8pp, contra 3.7pp do golpe normal) é o que estava incomodando, ou tem algum outro momento específico da animação que parece mais errado? Se puder descrever o instante exato (logo no início do golpe? no meio? ao voltar pra postura normal?), consigo mirar melhor.
